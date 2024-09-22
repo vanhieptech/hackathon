@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Analysis Results</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.2.1/dist/mermaid.min.js"></script>
+</head>
+<body>
+<div class="container my-5">
+    <h1>Analysis Results</h1>
+    <div th:if="${result}">
+        <h2>UML Diagrams</h2>
+        <div th:each="diagram : ${result.umlDiagrams}">
+            <h3 th:text="${diagram.type}"></h3>
+            <pre class="mermaid" th:text="${diagram.content}"></pre>
+        </div>
+
+        <h2>Comparison Results</h2>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Overall Score</h5>
+                <p class="card-text" th:text="${#numbers.formatDecimal(overallScore, 1, 2)}"></p>
+            </div>
+        </div>
+
+
+        <h2>Database Changes</h2>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Change Type</th>
+                <th>Description</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="change : ${result.databaseChanges}">
+                <td th:text="${change.type}"></td>
+                <td th:text="${change.description}"></td>
+            </tr>
+            </tbody>
+        </table>
+
+        <h2>Sequence Logic</h2>
+        <ul>
+            <li th:each="logic : ${result.sequenceLogic}" th:text="${logic}"></li>
+        </ul>
+
+        <h2>Exposed APIs</h2>
+        <ul>
+            <li th:each="api : ${result.exposedApis}" th:text="${api}"></li>
+        </ul>
+
+        <h2>External API Calls</h2>
+        <ul>
+            <li th:each="call : ${result.externalApiCalls}" th:text="${call}"></li>
+        </ul>
+
+        <h3>Detailed Scores</h3>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Category</th>
+                <th>Score</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="score : ${detailedScores}">
+                <td th:text="${score.key}"></td>
+                <td th:text="${#numbers.formatDecimal(score.value, 1, 2)}"></td>
+            </tr>
+            </tbody>
+        </table>
+
+
+        <h2>Code Quality Metrics</h2>
+        <div th:text="'Violations: ' + ${result.codeQualityMetrics.violations}"></div>
+        <div th:text="'Complexity: ' + ${#numbers.formatDecimal(result.codeQualityMetrics.complexity, 1, 2)}"></div>
+        <div th:text="'Duplication: ' + ${#numbers.formatDecimal(result.codeQualityMetrics.duplication, 1, 2)}"></div>
+
+
+        <h2>Code Quality Metrics</h2>
+        <canvas id="codeQualityChart" width="400" height="200"
+                th:attr="data-violations=${result.codeQualityMetrics.violations},
+                         data-complexity=${result.codeQualityMetrics.complexity},
+                         data-duplication=${result.codeQualityMetrics.duplication}">
+        </canvas>
+        <h2>API Information</h2>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Class Name</th>
+                <th>Method Name</th>
+                <th>Return Type</th>
+                <th>Parameters</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="api : ${result.apiInfo}">
+                <td th:text="${api.className}"></td>
+                <td th:text="${api.methodName}"></td>
+                <td th:text="${api.returnType}"></td>
+                <td th:text="${api.parameters}"></td>
+            </tr>
+            </tbody>
+        </table>
+
+        <h3>Discrepancies</h3>
+        <ul>
+            <li th:each="discrepancy : ${discrepancies}" th:text="${discrepancy}"></li>
+        </ul>
+
+
+        <a th:href="@{'/export/csv/' + ${result.id}}" class="btn btn-primary">Download CSV</a>
+        <a th:href="@{'/export/pdf/' + ${result.id}}" class="btn btn-secondary">Download PDF</a>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+<script th:src="@{/js/visualization.js}"></script>
+<script>
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        securityLevel: 'loose'
+    });
+</script>
+</body>
+</html>
