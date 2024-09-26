@@ -1,63 +1,64 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-  <title>Analysis in Progress</title>
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <title>Analysis in Progress</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 <body>
 <div class="container mt-5">
-  <h1>Analysis in Progress</h1>
-  <p>Please wait while we process your analysis.</p>
-  <div class="progress">
-    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
-  </div>
-  <div id="status" class="mt-3"></div>
+    <h1>Analysis in Progress</h1>
+    <p>Please wait while we process your analysis.</p>
+    <div class="progress">
+        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+    </div>
+    <div id="status" class="mt-3"></div>
 </div>
 
 <script th:inline="javascript">
-  /*<![CDATA[*/
-  var analysisId = /*[[${analysisId}]]*/ '';
-  var stompClient = null;
+    /*<![CDATA[*/
+    var analysisId = /*[[${analysisId}]]*/ '';
+    var stompClient = null;
 
-  function connect() {
-    var socket = new SockJS('/ws');
-    stompClient = Stomp.over(socket);
-    stompClient.connect({}, function(frame) {
-      console.log('Connected: ' + frame);
-      stompClient.subscribe('/topic/progress/' + analysisId, function(progressUpdate) {
-        updateProgress(JSON.parse(progressUpdate.body));
-      });
-    }, function(error) {
-      console.log('STOMP error ' + error);
-      setTimeout(connect, 5000);
-    });
-  }
-
-  function updateProgress(progressUpdate) {
-    var progressBar = document.getElementById('progress-bar');
-    var statusDiv = document.getElementById('status');
-
-    progressBar.style.width = progressUpdate.progressPercentage + '%';
-    progressBar.setAttribute('aria-valuenow', progressUpdate.progressPercentage);
-
-    statusDiv.textContent = progressUpdate.message;
-
-    if (progressUpdate.progressPercentage === 100) {
-      window.location.href = '/results/' + analysisId;
-    } else if (progressUpdate.progressPercentage === -1) {
-      statusDiv.textContent = 'An error occurred: ' + progressUpdate.message;
-      progressBar.classList.remove('bg-primary');
-      progressBar.classList.add('bg-danger');
+    function connect() {
+        var socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/progress/' + analysisId, function (progressUpdate) {
+                updateProgress(JSON.parse(progressUpdate.body));
+            });
+        }, function (error) {
+            console.log('STOMP error ' + error);
+            setTimeout(connect, 5000);
+        });
     }
-  }
 
-  $(document).ready(function() {
-    connect();
-  });
-  /*]]>*/
+    function updateProgress(progressUpdate) {
+        var progressBar = document.getElementById('progress-bar');
+        var statusDiv = document.getElementById('status');
+
+        progressBar.style.width = progressUpdate.progressPercentage + '%';
+        progressBar.setAttribute('aria-valuenow', progressUpdate.progressPercentage);
+
+        statusDiv.textContent = progressUpdate.message;
+
+        if (progressUpdate.progressPercentage === 100) {
+            window.location.href = '/results/' + analysisId;
+        } else if (progressUpdate.progressPercentage === -1) {
+            statusDiv.textContent = 'An error occurred: ' + progressUpdate.message;
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-danger');
+        }
+    }
+
+    $(document).ready(function () {
+        connect()
+    });
+    /*]]>*/
 </script>
 <!--<script th:src="@{/js/websocket.js}"></script>-->
 </body>

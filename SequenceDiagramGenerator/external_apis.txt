@@ -1,0 +1,2 @@
+com.example.ExternalService,ExternalAPI
+org.thirdparty.RestClient,RESTService

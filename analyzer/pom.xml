@@ -44,6 +44,11 @@
             <artifactId>javaparser-core</artifactId>
             <version>3.23.1</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.javaparser</groupId>
+            <artifactId>javaparser-symbol-solver-core</artifactId>
+            <version>3.24.2</version>
+        </dependency>
 
         <!-- PlantUML for UML generation -->
         <dependency>

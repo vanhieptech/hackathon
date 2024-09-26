@@ -24,9 +24,9 @@ public class BookController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Book> getBookById(@PathVariable Long id) {
-        // This API is called to retrieve a specific book by its ID
-        Book book = bookService.getBookById(id);
-        return book != null ? ResponseEntity.ok(book) : ResponseEntity.notFound().build();
+        return bookService.getBookById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
@@ -37,9 +37,9 @@ public class BookController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Book> updateBook(@PathVariable Long id, @RequestBody Book bookDetails) {
-        // This API is called to update an existing book
-        Book updatedBook = bookService.updateBook(id, bookDetails);
-        return updatedBook != null ? ResponseEntity.ok(updatedBook) : ResponseEntity.notFound().build();
+        return bookService.updateBook(id, bookDetails)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
@@ -51,9 +51,8 @@ public class BookController {
 
     @GetMapping("/{id}/with-author")
     public ResponseEntity<String> getBookWithAuthor(@PathVariable Long id) {
-        // This API is called to retrieve a book with its author information
-        // It demonstrates calling the author-service
-        String result = bookService.getBookWithAuthor(id);
-        return ResponseEntity.ok(result);
+        return bookService.getBookWithAuthor(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Sequence Diagram</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/languages/java.min.js"></script>
+<style>
+  body { display: flex; height: 100vh; margin: 0; }
+  #controls { padding: 10px; }
+  #controls input, #controls select, #controls button { margin-bottom: 5px; }
+  #diagram-container { display: flex; flex-grow: 1; }
+  #mynetwork { flex-grow: 1; border: 1px solid lightgray; }
+  #details-panel { width: 400px; padding: 10px; border-left: 1px solid #ccc; overflow-y: auto; }
+  #details-panel h3 { margin-top: 0; }
+  pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+  code { font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="controls">
+  <input type="text" id="searchInput" placeholder="Search...">
+  <select id="projectFilter"><option value="">All Projects</option></select>
+  <button onclick="applyFilters()">Apply Filters</button>
+  <button onclick="resetFilters()">Reset Filters</button>
+  <button onclick="expandAll()">Expand All</button>
+  <button onclick="collapseAll()">Collapse All</button>
+</div>
+<div id="diagram-container">
+  <div id="mynetwork"></div>
+  <div id="details-panel">
+    <h3>Node Details</h3>
+    <div id="node-details">Select a node to view details</div>
+  </div>
+</div>
+<script>
+  var nodes = new vis.DataSet([
+{ id: 0, label: 'BookStore', level: 1, project: 'BookStore' }
+  ]);
+  var edges = new vis.DataSet([
+
+  ]);
+var nodeDetails = {
+  0: { type: 'Project', name: 'BookStore', classes: 0 },
+};
+  var container = document.getElementById('mynetwork');
+  var data = { nodes: nodes, edges: edges };
+  var options = { 
+    physics: { enabled: false },
+    layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
+    interaction: { navigationButtons: true, keyboard: true }
+  };
+  var network = new vis.Network(container, data, options);
+  network.on('select', function(params) {
+    if (params.nodes.length === 1) {
+      var nodeId = params.nodes[0];
+      var details = nodeDetails[nodeId];
+      var detailsHtml = '';
+      if (details) {
+        detailsHtml += '<p><strong>Type:</strong> ' + details.type + '</p>';
+        detailsHtml += '<p><strong>Name:</strong> ' + details.name + '</p>';
+        if (details.type === 'Project') {
+          detailsHtml += '<p><strong>Classes:</strong> ' + details.classes + '</p>';
+        } else if (details.type === 'Class') {
+          detailsHtml += '<p><strong>Project:</strong> ' + details.project + '</p>';
+          detailsHtml += '<p><strong>Methods:</strong> ' + details.methods + '</p>';
+        } else if (details.type === 'Method') {
+          detailsHtml += '<p><strong>Class:</strong> ' + details.class + '</p>';
+          detailsHtml += '<p><strong>Project:</strong> ' + details.project + '</p>';
+          detailsHtml += '<p><strong>Calls:</strong> ' + details.calls + '</p>';
+        }
+      } else {
+        detailsHtml = 'No details available for this node.';
+      }
+      document.getElementById('node-details').innerHTML = detailsHtml;
+    } else {
+      document.getElementById('node-details').innerHTML = 'Select a node to view details';
+    }
+  });
+  function applyFilters() {
+    var searchValue = document.getElementById('searchInput').value.toLowerCase();
+    var projectValue = document.getElementById('projectFilter').value;
+    nodes.forEach(function(node) {
+      var match = (node.label.toLowerCase().indexOf(searchValue) !== -1) &&
+                  (projectValue === '' || node.project === projectValue);
+      nodes.update({id: node.id, hidden: !match});
+    });
+  }
+  function resetFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('projectFilter').value = '';
+    nodes.forEach(function(node) {
+      nodes.update({id: node.id, hidden: false});
+    });
+  }
+  function expandAll() {
+    nodes.forEach(function(node) {
+      nodes.update({id: node.id, hidden: false});
+    });
+  }
+  function collapseAll() {
+    nodes.forEach(function(node) {
+      nodes.update({id: node.id, hidden: node.level > 1});
+    });
+  }
+  network.on('doubleClick', function(params) {
+    if (params.nodes.length === 1) {
+      var nodeId = params.nodes[0];
+      var clickedNode = nodes.get(nodeId);
+      var connectedNodes = network.getConnectedNodes(nodeId);
+      var updateArray = [];
+      connectedNodes.forEach(function(connectedNodeId) {
+        var connectedNode = nodes.get(connectedNodeId);
+        if (connectedNode.level > clickedNode.level) {
+          updateArray.push({id: connectedNodeId, hidden: !connectedNode.hidden});
+        }
+      });
+      nodes.update(updateArray);
+    }
+  });
+  network.on('select', function(params) {
+    if (params.nodes.length === 1) {
+      var nodeId = params.nodes[0];
+      var details = nodeDetails[nodeId];
+      var detailsHtml = '';
+      if (details) {
+        detailsHtml += '<p><strong>Type:</strong> ' + details.type + '</p>';
+        detailsHtml += '<p><strong>Name:</strong> ' + details.name + '</p>';
+        if (details.type === 'Project') {
+          detailsHtml += '<p><strong>Classes:</strong> ' + details.classes + '</p>';
+        } else if (details.type === 'Class') {
+          detailsHtml += '<p><strong>Project:</strong> ' + details.project + '</p>';
+          detailsHtml += '<p><strong>Methods:</strong> ' + details.methods + '</p>';
+        } else if (details.type === 'Method') {
+          detailsHtml += '<p><strong>Class:</strong> ' + details.class + '</p>';
+          detailsHtml += '<p><strong>Project:</strong> ' + details.project + '</p>';
+          detailsHtml += '<p><strong>Calls:</strong> ' + details.calls + '</p>';
+          detailsHtml += '<p><strong>Code:</strong></p>';
+          detailsHtml += '<pre><code class="java">' + details.body + '</code></pre>';
+        }
+      } else {
+        detailsHtml = 'No details available for this node.';
+      }
+      document.getElementById('node-details').innerHTML = detailsHtml;
+      if (details && details.type === 'Method') {
+        hljs.highlightAll();
+      }
+    } else {
+      document.getElementById('node-details').innerHTML = 'Select a node to view details';
+    }
+  });
+  var projectFilter = document.getElementById('projectFilter');
+  projectFilter.innerHTML += '<option value="BookStore">BookStore</option>';
+</script>
+</body>
+</html>

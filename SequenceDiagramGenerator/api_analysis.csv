@@ -1,0 +1,7 @@
+Type,Name,HTTP Method,Path/URL,Parameters,Return Type/Purpose
+Internal API,com/example/controller/BookController.getAllBooks,GET,/api/books,,java.util.List
+Internal API,com/example/controller/BookController.getBookById,GET,/api/books/{id},java.lang.Long,org.springframework.http.ResponseEntity
+Internal API,com/example/controller/BookController.createBook,POST,/api/books,com.example.model.Book,com.example.model.Book
+Internal API,com/example/controller/BookController.updateBook,PUT,/api/books/{id},"java.lang.Long, com.example.model.Book",org.springframework.http.ResponseEntity
+Internal API,com/example/controller/BookController.deleteBook,DELETE,/api/books/{id},java.lang.Long,org.springframework.http.ResponseEntity
+Internal API,com/example/controller/BookController.getBookWithAuthor,GET,/api/books/{id}/with-author,java.lang.Long,org.springframework.http.ResponseEntity

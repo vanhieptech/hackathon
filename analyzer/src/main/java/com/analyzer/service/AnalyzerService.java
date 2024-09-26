@@ -44,9 +44,6 @@ public class AnalyzerService {
     private PdfExporter pdfExporter;
 
     @Autowired
-    private SimpMessagingTemplate messagingTemplate;
-
-    @Autowired
     private ProgressService progressService;
 
     private final Map<String, AnalysisStatus> analysisStatuses = new ConcurrentHashMap<>();

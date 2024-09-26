@@ -1,0 +1,28 @@
+@startuml
+actor Client
+participant "Your API" as API
+Client -> API : GET /api/books
+activate API
+API --> Client : response
+deactivate API
+Client -> API : GET /api/books/{id}
+activate API
+API --> Client : response
+deactivate API
+Client -> API : POST /api/books
+activate API
+API --> Client : response
+deactivate API
+Client -> API : PUT /api/books/{id}
+activate API
+API --> Client : response
+deactivate API
+Client -> API : DELETE /api/books/{id}
+activate API
+API --> Client : response
+deactivate API
+Client -> API : GET /api/books/{id}/with-author
+activate API
+API --> Client : response
+deactivate API
+@enduml

@@ -1,0 +1,6 @@
+participantType:Repository=Repository
+participantType:Service=Service
+participantType:Controller=Controller
+participantType:Client=ExternalService
+exclude:com.example.utils.Helper
+apiEndpoint:AuthorServiceClient=/api/authors/{id}

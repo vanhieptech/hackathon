@@ -1,0 +1,14 @@
+digraph DependencyGraph {
+  "BookStore" -> "BookStore:org.springframework.boot:spring-boot-starter-web";
+  "BookStore" -> "BookStore:mysql:mysql-connector-java";
+  "BookStore" -> "AuthorDTO";
+  "BookStore" -> "BookServiceImpl";
+  "BookStore" -> "AuthorServiceClient";
+  "BookStore" -> "Book";
+  "BookStore" -> "BookStore:org.springframework.boot:spring-boot-starter-webflux";
+  "BookStore" -> "BookService";
+  "BookStore" -> "BookServiceApplication";
+  "BookStore" -> "BookStore:org.liquibase:liquibase-core";
+  "BookStore" -> "BookStore:org.springframework.boot:spring-boot-starter-data-jpa";
+  "BookStore" -> "BookController";
+}

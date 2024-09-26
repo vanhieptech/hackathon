@@ -1,0 +1,11 @@
+@startuml
+class com/example/controller/BookController {
+  +getAllBooks() : java.util.List
+  +getBookById(java.lang.Long) : org.springframework.http.ResponseEntity
+  +createBook(com.example.model.Book) : com.example.model.Book
+  +updateBook(java.lang.Long, com.example.model.Book) : org.springframework.http.ResponseEntity
+  +deleteBook(java.lang.Long) : org.springframework.http.ResponseEntity
+  +getBookWithAuthor(java.lang.Long) : org.springframework.http.ResponseEntity
+}
+
+@enduml
