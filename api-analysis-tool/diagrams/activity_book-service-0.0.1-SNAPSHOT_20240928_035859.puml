@@ -1,0 +1,2000 @@
+@startuml
+partition org.springframework.boot.loader.ClassPathIndexFile.extractName {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.size {
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.containsEntry {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.getUrls {
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.asUrl {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.loadIfPossible {
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.loadIfPossible {
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.loadIfPossible {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+  :Activity_15;
+  :Activity_16;
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.loadLines {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.ClassPathIndexFile.asFile {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.getClassPathIndex {
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.getMainClass {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.createClassLoader {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.guessClassPathSize {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.getClassPathArchivesIterator {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.isEntryIndexed {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.applyClassPathArchivePostProcessing {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.isSearchCandidate {
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.isNestedArchive {
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.isPostProcessingClassPathArchives {
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.postProcessClassPathArchives {
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.isExploded {
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.getArchive {
+}
+partition org.springframework.boot.loader.ExecutableArchiveLauncher.lambda$getClassPathArchivesIterator$0 {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.JarLauncher.getClassPathIndex {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.JarLauncher.getClassPathIndexFileLocation {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.JarLauncher.isPostProcessingClassPathArchives {
+}
+partition org.springframework.boot.loader.JarLauncher.isSearchCandidate {
+}
+partition org.springframework.boot.loader.JarLauncher.isNestedArchive {
+}
+partition org.springframework.boot.loader.JarLauncher.main {
+}
+partition org.springframework.boot.loader.JarLauncher.lambda$static$0 {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader$DefinePackageCallType.values {
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader$DefinePackageCallType.valueOf {
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader$UseFastConnectionExceptionsEnumeration.hasMoreElements {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader$UseFastConnectionExceptionsEnumeration.nextElement {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader$UseFastConnectionExceptionsEnumeration.nextElement {
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.findResource {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.findResources {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.loadClass {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.loadClassInLaunchedClassLoader {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.definePackageIfNecessary {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.definePackage {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.definePackage {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.definePackage {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.getManifest {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.doDefinePackage {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.clearCache {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.clearCache {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.lambda$definePackage$2 {
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.lambda$definePackage$1 {
+}
+partition org.springframework.boot.loader.LaunchedURLClassLoader.lambda$definePackage$0 {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.Launcher.launch {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.Launcher.createClassLoader {
+}
+partition org.springframework.boot.loader.Launcher.createClassLoader {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.Launcher.createClassLoader {
+}
+partition org.springframework.boot.loader.Launcher.launch {
+}
+partition org.springframework.boot.loader.Launcher.createMainMethodRunner {
+}
+partition org.springframework.boot.loader.Launcher.getMainClass {
+}
+partition org.springframework.boot.loader.Launcher.getClassPathArchivesIterator {
+}
+partition org.springframework.boot.loader.Launcher.getClassPathArchives {
+}
+partition org.springframework.boot.loader.Launcher.createArchive {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+}
+partition org.springframework.boot.loader.Launcher.isExploded {
+}
+partition org.springframework.boot.loader.Launcher.getArchive {
+}
+partition org.springframework.boot.loader.MainMethodRunner.run {
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ArchiveEntryFilter.matches {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.addClassPathArchive {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.getClassPathArchives {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.isAbsolutePath {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.getArchive {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.isNestedArchivePath {
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.getNestedArchives {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.addNestedEntries {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.asList {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.getJarFileArchive {
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.iterator {
+}
+partition org.springframework.boot.loader.PropertiesLauncher$ClassPathArchives.close {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.PropertiesLauncher$PrefixMatchingArchiveFilter.matches {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getHomeDirectory {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.initializeProperties {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+  :Activity_15;
+  :Activity_16;
+  :Activity_17;
+  :Activity_18;
+  :Activity_19;
+  :Activity_20;
+  :Activity_21;
+  :Activity_22;
+  :Activity_23;
+  :Activity_24;
+  :Activity_25;
+  :Activity_26;
+  Activity_26 --> Activity_4;
+  :Activity_27;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.loadResource {
+  :Activity_1;
+  :Activity_2;
+  Activity_2 --> Activity_1;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getResource {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.handleUrl {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.isUrl {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getClasspathResource {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getFileResource {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getURLResource {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.exists {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.initializePaths {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.parsePathsProperty {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getArgs {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getMainClass {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.createClassLoader {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.wrapWithCustomClassLoader {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.newClassLoader {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getProperty {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getProperty {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getPropertyWithDefault {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getProperty {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+  :Activity_15;
+  :Activity_16;
+  :Activity_17;
+  :Activity_18;
+  :Activity_19;
+  :Activity_20;
+  :Activity_21;
+  :Activity_22;
+  :Activity_23;
+  :Activity_24;
+  :Activity_25;
+  :Activity_26;
+  :Activity_27;
+  :Activity_28;
+  :Activity_29;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.getClassPathArchivesIterator {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.main {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.toCamelCase {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.capitalize {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.debug {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.cleanupPath {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.close {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.PropertiesLauncher.access$000 {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.access$200 {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.access$300 {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.access$400 {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.access$500 {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.access$600 {
+}
+partition org.springframework.boot.loader.PropertiesLauncher.access$700 {
+}
+partition org.springframework.boot.loader.WarLauncher.isPostProcessingClassPathArchives {
+}
+partition org.springframework.boot.loader.WarLauncher.isSearchCandidate {
+}
+partition org.springframework.boot.loader.WarLauncher.isNestedArchive {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.WarLauncher.main {
+}
+partition org.springframework.boot.loader.archive.Archive$Entry.isDirectory {
+}
+partition org.springframework.boot.loader.archive.Archive$Entry.getName {
+}
+partition org.springframework.boot.loader.archive.Archive$EntryFilter.matches {
+}
+partition org.springframework.boot.loader.archive.Archive.getUrl {
+}
+partition org.springframework.boot.loader.archive.Archive.getManifest {
+}
+partition org.springframework.boot.loader.archive.Archive.getNestedArchives {
+}
+partition org.springframework.boot.loader.archive.Archive.getNestedArchives {
+}
+partition org.springframework.boot.loader.archive.Archive.iterator {
+}
+partition org.springframework.boot.loader.archive.Archive.forEach {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.archive.Archive.spliterator {
+}
+partition org.springframework.boot.loader.archive.Archive.isExploded {
+}
+partition org.springframework.boot.loader.archive.Archive.close {
+}
+partition org.springframework.boot.loader.archive.Archive.lambda$getNestedArchives$0 {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.hasNext {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.next {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.poll {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  Activity_6 --> Activity_2;
+  :Activity_7;
+  :Activity_8;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.getFileEntry {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.isListable {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.listFiles {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.remove {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$AbstractIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$ArchiveIterator.adapt {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$ArchiveIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$EntryIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$EntryIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$FileEntry.getFile {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$FileEntry.isDirectory {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$FileEntry.getName {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$FileEntry.getUrl {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$SimpleJarFileArchive.getUrl {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$SimpleJarFileArchive.getManifest {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$SimpleJarFileArchive.getNestedArchives {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$SimpleJarFileArchive.iterator {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive$SimpleJarFileArchive.toString {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.getManifestFile {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.getUrl {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.getManifest {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+  :Activity_15;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.getNestedArchives {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.iterator {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.getNestedArchive {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.isExploded {
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.toString {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.archive.ExplodedArchive.access$000 {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$AbstractIterator.hasNext {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$AbstractIterator.next {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$AbstractIterator.poll {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  Activity_4 --> Activity_1;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$AbstractIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$EntryIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$EntryIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$JarFileEntry.getJarEntry {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$JarFileEntry.isDirectory {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$JarFileEntry.getName {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$NestedArchiveIterator.adapt {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive$NestedArchiveIterator.adapt {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.getUrl {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.getManifest {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.getNestedArchives {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.iterator {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.close {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.getNestedArchive {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.getUnpackedNestedArchive {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.getTempUnpackDirectory {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.createUnpackDirectory {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.unpack {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+  :Activity_15;
+  :Activity_16;
+  :Activity_17;
+  :Activity_18;
+  :Activity_19;
+  :Activity_20;
+  :Activity_21;
+  :Activity_22;
+  :Activity_23;
+  :Activity_24;
+  :Activity_25;
+  :Activity_26;
+  :Activity_27;
+  :Activity_28;
+  :Activity_29;
+  :Activity_30;
+  :Activity_31;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.createDirectory {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.createFile {
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.getFileAttributes {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.archive.JarFileArchive.toString {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.data.RandomAccessData.getInputStream {
+}
+partition org.springframework.boot.loader.data.RandomAccessData.getSubsection {
+}
+partition org.springframework.boot.loader.data.RandomAccessData.read {
+}
+partition org.springframework.boot.loader.data.RandomAccessData.read {
+}
+partition org.springframework.boot.loader.data.RandomAccessData.getSize {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$DataInputStream.read {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$DataInputStream.read {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$DataInputStream.read {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$DataInputStream.doRead {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$DataInputStream.skip {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$DataInputStream.cap {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$DataInputStream.moveOn {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.read {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.openIfNecessary {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.close {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.readByte {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.access$100 {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.access$300 {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.access$400 {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile$FileAccess.access$500 {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.getFile {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.getInputStream {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.getSubsection {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.read {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.read {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.readByte {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.read {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.getSize {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.close {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.access$600 {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.access$700 {
+}
+partition org.springframework.boot.loader.data.RandomAccessDataFile.access$800 {
+}
+partition org.springframework.boot.loader.jar.AbstractJarFile$JarFileType.values {
+}
+partition org.springframework.boot.loader.jar.AbstractJarFile$JarFileType.valueOf {
+}
+partition org.springframework.boot.loader.jar.AbstractJarFile.getUrl {
+}
+partition org.springframework.boot.loader.jar.AbstractJarFile.getType {
+}
+partition org.springframework.boot.loader.jar.AbstractJarFile.getPermission {
+}
+partition org.springframework.boot.loader.jar.AbstractJarFile.getInputStream {
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.length {
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.startsWith {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.endsWith {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.substring {
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.substring {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.matches {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.getChar {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.getNumberOfUtfBytes {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.equals {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.hashCode {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.toString {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.toString {
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.hashCode {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.AsciiBytes.hashCode {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.Bytes.littleEndianValue {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64End.getSize {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64End.getCentralDirectory {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64End.getNumberOfRecords {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64End.access$200 {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64End.access$300 {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64End.access$400 {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64End.access$500 {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64Locator.getZip64EndSize {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64Locator.getZip64EndOffset {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64Locator.find {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64Locator.access$000 {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64Locator.access$600 {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord$Zip64Locator.access$700 {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord.createBlockFromEndOfData {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord.isValid {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord.getStartOfArchive {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord.getCentralDirectory {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord.getNumberOfRecords {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord.getComment {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryEndRecord.isZip64 {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.load {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getLocalHeaderOffset {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getName {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.hasName {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.isDirectory {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getMethod {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getTime {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.decodeMsDosFormatDateTime {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getCrc {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getCompressedSize {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getSize {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getExtra {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.hasExtra {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getComment {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getLocalHeaderOffset {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.clone {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.fromRandomAccessData {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.getChronoValue {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryFileHeader.clone {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryParser.addVisitor {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryParser.parse {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryParser.parseEntries {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryParser.getArchiveData {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryParser.visitStart {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryParser.visitFileHeader {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryParser.visitEnd {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryVisitor.visitStart {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryVisitor.visitFileHeader {
+}
+partition org.springframework.boot.loader.jar.CentralDirectoryVisitor.visitEnd {
+}
+partition org.springframework.boot.loader.jar.FileHeader.hasName {
+}
+partition org.springframework.boot.loader.jar.FileHeader.getLocalHeaderOffset {
+}
+partition org.springframework.boot.loader.jar.FileHeader.getCompressedSize {
+}
+partition org.springframework.boot.loader.jar.FileHeader.getSize {
+}
+partition org.springframework.boot.loader.jar.FileHeader.getMethod {
+}
+partition org.springframework.boot.loader.jar.Handler.openConnection {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.Handler.isUrlInJarFile {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.Handler.openFallbackConnection {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+}
+partition org.springframework.boot.loader.jar.Handler.openFallbackTomcatConnection {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.jar.Handler.isTomcatWarUrl {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.Handler.openFallbackContextConnection {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.Handler.openFallbackHandlerConnection {
+}
+partition org.springframework.boot.loader.jar.Handler.getFallbackHandler {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.Handler.log {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.Handler.parseURL {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.Handler.getFileFromSpec {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.Handler.getFileFromContext {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.Handler.trimToJarRoot {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.Handler.setFile {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.Handler.normalize {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.Handler.replaceParentDir {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  Activity_3 --> Activity_1;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.jar.Handler.replaceCurrentDir {
+}
+partition org.springframework.boot.loader.jar.Handler.hashCode {
+}
+partition org.springframework.boot.loader.jar.Handler.hashCode {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.jar.Handler.sameFile {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+}
+partition org.springframework.boot.loader.jar.Handler.canonicalize {
+}
+partition org.springframework.boot.loader.jar.Handler.getRootJarFileFromUrl {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.Handler.getRootJarFile {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.jar.Handler.addToRootFileCache {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.Handler.captureJarContextUrl {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+}
+partition org.springframework.boot.loader.jar.Handler.canResetCachedUrlHandlers {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.Handler.resetCachedUrlHandlers {
+}
+partition org.springframework.boot.loader.jar.Handler.setUseFastConnectionExceptions {
+}
+partition org.springframework.boot.loader.jar.JarEntry.getIndex {
+}
+partition org.springframework.boot.loader.jar.JarEntry.getAsciiBytesName {
+}
+partition org.springframework.boot.loader.jar.JarEntry.hasName {
+}
+partition org.springframework.boot.loader.jar.JarEntry.getUrl {
+}
+partition org.springframework.boot.loader.jar.JarEntry.getAttributes {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarEntry.getCertificates {
+}
+partition org.springframework.boot.loader.jar.JarEntry.getCodeSigners {
+}
+partition org.springframework.boot.loader.jar.JarEntry.getCertification {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarEntry.getLocalHeaderOffset {
+}
+partition org.springframework.boot.loader.jar.JarEntryCertification.getCertificates {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarEntryCertification.getCodeSigners {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarEntryCertification.from {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.JarEntryFilter.apply {
+}
+partition org.springframework.boot.loader.jar.JarFile$1.visitStart {
+}
+partition org.springframework.boot.loader.jar.JarFile$1.visitFileHeader {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile$1.visitEnd {
+}
+partition org.springframework.boot.loader.jar.JarFile$JarEntryEnumeration.hasMoreElements {
+}
+partition org.springframework.boot.loader.jar.JarFile$JarEntryEnumeration.nextElement {
+}
+partition org.springframework.boot.loader.jar.JarFile$JarEntryEnumeration.nextElement {
+}
+partition org.springframework.boot.loader.jar.JarFile.centralDirectoryVisitor {
+}
+partition org.springframework.boot.loader.jar.JarFile.getWrapper {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile.getPermission {
+}
+partition org.springframework.boot.loader.jar.JarFile.getRootJarFile {
+}
+partition org.springframework.boot.loader.jar.JarFile.getData {
+}
+partition org.springframework.boot.loader.jar.JarFile.getManifest {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.jar.JarFile.entries {
+}
+partition org.springframework.boot.loader.jar.JarFile.stream {
+}
+partition org.springframework.boot.loader.jar.JarFile.iterator {
+}
+partition org.springframework.boot.loader.jar.JarFile.getJarEntry {
+}
+partition org.springframework.boot.loader.jar.JarFile.getJarEntry {
+}
+partition org.springframework.boot.loader.jar.JarFile.containsEntry {
+}
+partition org.springframework.boot.loader.jar.JarFile.getEntry {
+}
+partition org.springframework.boot.loader.jar.JarFile.getInputStream {
+}
+partition org.springframework.boot.loader.jar.JarFile.getInputStream {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.JarFile.getInputStream {
+}
+partition org.springframework.boot.loader.jar.JarFile.getNestedJarFile {
+}
+partition org.springframework.boot.loader.jar.JarFile.getNestedJarFile {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.JarFile.createJarFileFromEntry {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile.createJarFileFromDirectoryEntry {
+}
+partition org.springframework.boot.loader.jar.JarFile.createJarFileFromFileEntry {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile.getComment {
+}
+partition org.springframework.boot.loader.jar.JarFile.size {
+}
+partition org.springframework.boot.loader.jar.JarFile.close {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFile.ensureOpen {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile.isClosed {
+}
+partition org.springframework.boot.loader.jar.JarFile.getUrlString {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile.getUrl {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile.toString {
+}
+partition org.springframework.boot.loader.jar.JarFile.getName {
+}
+partition org.springframework.boot.loader.jar.JarFile.isSigned {
+}
+partition org.springframework.boot.loader.jar.JarFile.getCertification {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.JarFile.clearCache {
+}
+partition org.springframework.boot.loader.jar.JarFile.getPathFromRoot {
+}
+partition org.springframework.boot.loader.jar.JarFile.getType {
+}
+partition org.springframework.boot.loader.jar.JarFile.registerUrlProtocolHandler {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.JarFile.resetCachedUrlHandlers {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.jar.JarFile.getJarEntry {
+}
+partition org.springframework.boot.loader.jar.JarFile.lambda$createJarFileFromDirectoryEntry$1 {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFile.lambda$new$0 {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+  :Activity_15;
+  :Activity_16;
+  :Activity_17;
+  :Activity_18;
+  :Activity_19;
+  :Activity_20;
+  :Activity_21;
+  :Activity_22;
+  :Activity_23;
+  :Activity_24;
+}
+partition org.springframework.boot.loader.jar.JarFile.access$002 {
+}
+partition org.springframework.boot.loader.jar.JarFile.access$100 {
+}
+partition org.springframework.boot.loader.jar.JarFile.access$200 {
+}
+partition org.springframework.boot.loader.jar.JarFile.access$302 {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$1.removeEldestEntry {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$EntryIterator.hasNext {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$EntryIterator.next {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$EntryIterator.next {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$Offsets.set {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$Offsets.get {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$Offsets.swap {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$Offsets.from {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$Zip64Offsets.swap {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$Zip64Offsets.set {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$Zip64Offsets.get {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$ZipOffsets.swap {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$ZipOffsets.set {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries$ZipOffsets.get {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.visitStart {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.visitFileHeader {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.add {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.visitEnd {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getSize {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.sort {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.swap {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.iterator {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.iterator {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.containsEntry {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getEntry {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getInputStream {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getInputStream {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getEntryData {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getEntryData {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getEntry {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.isMetaInfEntry {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.isMultiReleaseJar {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.doGetEntry {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getEntry {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getEntry {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getFirstIndex {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.clearCache {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.applyFilter {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getCertification {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  Activity_3 --> Activity_2;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+  :Activity_10;
+  :Activity_11;
+  :Activity_12;
+  :Activity_13;
+  :Activity_14;
+  :Activity_15;
+  :Activity_16;
+  :Activity_17;
+  :Activity_18;
+  :Activity_19;
+  :Activity_20;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.getEntryIndex {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.swap {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.swap {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.lambda$static$0 {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.access$100 {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.access$200 {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.access$300 {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.access$600 {
+}
+partition org.springframework.boot.loader.jar.JarFileEntries.access$700 {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getUrl {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getType {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getPermission {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getManifest {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.entries {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.stream {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getJarEntry {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getEntry {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getInputStream {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getInputStream {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getComment {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.size {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.toString {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.getName {
+}
+partition org.springframework.boot.loader.jar.JarFileWrapper.unwrap {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$1.openConnection {
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.decode {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.write {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+  :Activity_9;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.decodeEscapeSequence {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.toCharSequence {
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.toString {
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.isEmpty {
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.getContentType {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.deduceContentType {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.get {
+}
+partition org.springframework.boot.loader.jar.JarURLConnection$JarEntryName.get {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.connect {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getJarFile {
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getJarFileURL {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.buildJarFileUrl {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getJarEntry {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getEntryName {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getInputStream {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.throwFileNotFound {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getContentLength {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getContentLengthLong {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getContent {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getContentType {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getPermission {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.getLastModified {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.setUseFastExceptions {
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.get {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.indexOfRootSpec {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.notFound {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.notFound {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.JarURLConnection.access$000 {
+}
+partition org.springframework.boot.loader.jar.StringSequence.subSequence {
+}
+partition org.springframework.boot.loader.jar.StringSequence.subSequence {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.StringSequence.isEmpty {
+  :Activity_1;
+  :Activity_2;
+}
+partition org.springframework.boot.loader.jar.StringSequence.length {
+}
+partition org.springframework.boot.loader.jar.StringSequence.charAt {
+}
+partition org.springframework.boot.loader.jar.StringSequence.indexOf {
+}
+partition org.springframework.boot.loader.jar.StringSequence.indexOf {
+}
+partition org.springframework.boot.loader.jar.StringSequence.indexOf {
+}
+partition org.springframework.boot.loader.jar.StringSequence.startsWith {
+}
+partition org.springframework.boot.loader.jar.StringSequence.startsWith {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.StringSequence.equals {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+}
+partition org.springframework.boot.loader.jar.StringSequence.hashCode {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.jar.StringSequence.toString {
+}
+partition org.springframework.boot.loader.jar.StringSequence.subSequence {
+}
+partition org.springframework.boot.loader.jar.ZipInflaterInputStream.available {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.ZipInflaterInputStream.read {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.jar.ZipInflaterInputStream.close {
+}
+partition org.springframework.boot.loader.jar.ZipInflaterInputStream.fill {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.jar.ZipInflaterInputStream.getInflaterBufferSize {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.jarmode.JarMode.accepts {
+}
+partition org.springframework.boot.loader.jarmode.JarMode.run {
+}
+partition org.springframework.boot.loader.jarmode.JarModeLauncher.main {
+  :Activity_1;
+  :Activity_2;
+  Activity_2 --> Activity_1;
+  :Activity_3;
+  :Activity_4;
+}
+partition org.springframework.boot.loader.jarmode.TestJarMode.accepts {
+}
+partition org.springframework.boot.loader.jarmode.TestJarMode.run {
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.resolvePlaceholders {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.resolvePlaceholders {
+  :Activity_1;
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.parseStringValue {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  Activity_7 --> Activity_1;
+  :Activity_8;
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.resolvePlaceholder {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.getProperty {
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.getProperty {
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.getProperty {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+  :Activity_6;
+  :Activity_7;
+  :Activity_8;
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.findPlaceholderEndIndex {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+  :Activity_5;
+}
+partition org.springframework.boot.loader.util.SystemPropertyUtils.substringMatch {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition com.example.dto.AuthorDTO.getId {
+}
+partition com.example.dto.AuthorDTO.setId {
+}
+partition com.example.dto.AuthorDTO.getName {
+}
+partition com.example.dto.AuthorDTO.setName {
+}
+partition com.example.BookServiceApplication.main {
+}
+partition com.example.BookServiceApplication.webClientBuilder {
+}
+partition com.example.controller.BookController.getAllBooks {
+}
+partition com.example.controller.BookController.getBookById {
+}
+partition com.example.controller.BookController.createBook {
+}
+partition com.example.controller.BookController.updateBook {
+}
+partition com.example.controller.BookController.deleteBook {
+}
+partition com.example.controller.BookController.getBookWithAuthor {
+}
+partition com.example.model.Book.getPublicationDate {
+}
+partition com.example.model.Book.setPublicationDate {
+}
+partition com.example.model.Book.getId {
+}
+partition com.example.model.Book.setId {
+}
+partition com.example.model.Book.getTitle {
+}
+partition com.example.model.Book.setTitle {
+}
+partition com.example.model.Book.getIsbn {
+}
+partition com.example.model.Book.setIsbn {
+}
+partition com.example.model.Book.getAuthorId {
+}
+partition com.example.model.Book.setAuthorId {
+}
+partition com.example.service.impl.BookServiceImpl.getAllBooks {
+}
+partition com.example.service.impl.BookServiceImpl.getBookById {
+}
+partition com.example.service.impl.BookServiceImpl.createBook {
+}
+partition com.example.service.impl.BookServiceImpl.updateBook {
+}
+partition com.example.service.impl.BookServiceImpl.deleteBook {
+}
+partition com.example.service.impl.BookServiceImpl.getBookWithAuthor {
+}
+partition com.example.service.impl.BookServiceImpl.lambda$getBookWithAuthor$1 {
+  :Activity_1;
+  :Activity_2;
+  :Activity_3;
+  :Activity_4;
+}
+partition com.example.service.impl.BookServiceImpl.lambda$updateBook$0 {
+}
+partition com.example.service.BookService.getAllBooks {
+}
+partition com.example.service.BookService.getBookById {
+}
+partition com.example.service.BookService.createBook {
+}
+partition com.example.service.BookService.updateBook {
+}
+partition com.example.service.BookService.deleteBook {
+}
+partition com.example.service.BookService.getBookWithAuthor {
+}
+partition com.example.service.AuthorServiceClient.getAuthor {
+}
+partition com.example.service.AuthorServiceClient.lambda$getAuthor$1 {
+}
+partition com.example.service.AuthorServiceClient.lambda$getAuthor$0 {
+  :Activity_1;
+}
+@enduml
