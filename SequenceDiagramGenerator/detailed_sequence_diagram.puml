@@ -1,0 +1,30 @@
+@startuml
+actor Client
+participant "com.example.service.impl.BookServiceImpl" as Service1
+participant "com.example.service.AuthorServiceClient" as Service2
+participant "com.example.controller.BookController" as Controller0
+Client -> null : GET /api/books
+activate null
+null --> Client : response
+deactivate null
+Client -> null : GET /api/books/{id}
+activate null
+null --> Client : response
+deactivate null
+Client -> null : POST /api/books
+activate null
+null --> Client : response
+deactivate null
+Client -> null : PUT /api/books/{id}
+activate null
+null --> Client : response
+deactivate null
+Client -> null : DELETE /api/books/{id}
+activate null
+null --> Client : response
+deactivate null
+Client -> null : GET /api/books/{id}/with-author
+activate null
+null --> Client : response
+deactivate null
+@enduml

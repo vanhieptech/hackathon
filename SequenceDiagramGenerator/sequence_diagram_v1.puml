@@ -104,14 +104,4 @@ deactivate BookService
 BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)
 deactivate BookController
 
-AuthorServiceClient -> AuthorServiceClient : call method
-activate AuthorServiceClient
-note over AuthorServiceClient : Class not found
-AuthorServiceClient --> AuthorServiceClient : return data
-deactivate AuthorServiceClient
-AuthorServiceClient -> AuthorServiceClient : call method
-activate AuthorServiceClient
-note over AuthorServiceClient : Class not found
-AuthorServiceClient --> AuthorServiceClient : return data
-deactivate AuthorServiceClient
 @enduml

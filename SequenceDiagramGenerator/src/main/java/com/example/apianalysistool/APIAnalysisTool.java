@@ -20,6 +20,7 @@ public class APIAnalysisTool {
     private final UMLGenerator umlGenerator;
     private final DocumentationGenerator docGenerator;
     private final CSVExporter csvExporter;
+    private final SequenceDiagramGenerator sequenceDiagramGenerator;
 
     public APIAnalysisTool() {
         this.apiScanner = new APIScanner();
@@ -27,6 +28,7 @@ public class APIAnalysisTool {
         this.umlGenerator = new UMLGenerator();
         this.docGenerator = new DocumentationGenerator();
         this.csvExporter = new CSVExporter();
+        this.sequenceDiagramGenerator = new SequenceDiagramGenerator();
     }
 
     public static void main(String[] args) {
@@ -65,9 +67,12 @@ public class APIAnalysisTool {
         List<APIInfo> apis = apiScanner.findExposedAPIs(allClasses);
         List<ExternalCallInfo> externalCalls = externalCallScanner.findExternalCalls(allClasses);
 
-        umlGenerator.generateDiagrams(apis, externalCalls);
+        umlGenerator.generateDiagrams(apis, externalCalls, allClasses);
         docGenerator.generateDocumentation(apis, externalCalls);
         csvExporter.exportToCSV(apis, externalCalls);
+
+        // Generate sequence diagram
+        sequenceDiagramGenerator.generateSequenceDiagram(allClasses, apis, externalCalls);
 
         System.out.println("Analysis complete. Check the output directory for results.");
     }

@@ -1,0 +1,29 @@
+sequenceDiagram
+    actor Client
+    participant Service1 as com.example.service.impl.BookServiceImpl
+    participant Service2 as com.example.service.AuthorServiceClient
+    participant Controller0 as com.example.controller.BookController
+    Client->>null: GET /api/books
+    activate null
+    null->>Client: response
+    deactivate null
+    Client->>null: GET /api/books/{id}
+    activate null
+    null->>Client: response
+    deactivate null
+    Client->>null: POST /api/books
+    activate null
+    null->>Client: response
+    deactivate null
+    Client->>null: PUT /api/books/{id}
+    activate null
+    null->>Client: response
+    deactivate null
+    Client->>null: DELETE /api/books/{id}
+    activate null
+    null->>Client: response
+    deactivate null
+    Client->>null: GET /api/books/{id}/with-author
+    activate null
+    null->>Client: response
+    deactivate null

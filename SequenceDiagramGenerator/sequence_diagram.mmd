@@ -1,27 +1,27 @@
 sequenceDiagram
     actor Client
-    participant API as Your API
-    Client->>API: GET /api/books
-    activate API
-    API->>Client: response
-    deactivate API
-    Client->>API: GET /api/books/{id}
-    activate API
-    API->>Client: response
-    deactivate API
-    Client->>API: POST /api/books
-    activate API
-    API->>Client: response
-    deactivate API
-    Client->>API: PUT /api/books/{id}
-    activate API
-    API->>Client: response
-    deactivate API
-    Client->>API: DELETE /api/books/{id}
-    activate API
-    API->>Client: response
-    deactivate API
-    Client->>API: GET /api/books/{id}/with-author
-    activate API
-    API->>Client: response
-    deactivate API
+    participant Service0 as com/example/controller/BookController
+    Client->>Service0: GET /api/books
+    activate Service0
+    Service0->>Client: response
+    deactivate Service0
+    Client->>Service0: GET /api/books/{id}
+    activate Service0
+    Service0->>Client: response
+    deactivate Service0
+    Client->>Service0: POST /api/books
+    activate Service0
+    Service0->>Client: response
+    deactivate Service0
+    Client->>Service0: PUT /api/books/{id}
+    activate Service0
+    Service0->>Client: response
+    deactivate Service0
+    Client->>Service0: DELETE /api/books/{id}
+    activate Service0
+    Service0->>Client: response
+    deactivate Service0
+    Client->>Service0: GET /api/books/{id}/with-author
+    activate Service0
+    Service0->>Client: response
+    deactivate Service0
