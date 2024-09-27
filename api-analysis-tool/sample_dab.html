@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample DAB Document</title>
+</head>
+<body>
+    <h1>Sample DAB Document for Project X</h1>
+
+    <h2>1. Class Diagram</h2>
+    <pre class="plantuml" data-type="Class Diagram">
+@startuml
+class User {
+  -id: Long
+  -username: String
+  -email: String
+  +getId(): Long
+  +getUsername(): String
+  +setUsername(username: String): void
+  +getEmail(): String
+  +setEmail(email: String): void
+}
+
+class Order {
+  -id: Long
+  -userId: Long
+  -totalAmount: BigDecimal
+  -status: OrderStatus
+  +getId(): Long
+  +getUserId(): Long
+  +getTotalAmount(): BigDecimal
+  +getStatus(): OrderStatus
+  +setStatus(status: OrderStatus): void
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+}
+
+User "1" -- "*" Order : places
+Order "*" -- "1" OrderStatus : has
+@enduml
+    </pre>
+
+    <h2>2. Sequence Diagram</h2>
+    <pre class="plantuml" data-type="Sequence Diagram">
+@startuml
+actor Client
+participant "OrderController" as OC
+participant "OrderService" as OS
+participant "UserService" as US
+participant "Order" as O
+database "Database" as DB
+
+Client -> OC : POST /orders
+activate OC
+OC -> OS : createOrder(userId, items)
+activate OS
+OS -> US : getUser(userId)
+activate US
+US --> OS : User
+deactivate US
+OS -> O : new Order(user, items)
+activate O
+O --> OS : order
+deactivate O
+OS -> DB : save(order)
+activate DB
+DB --> OS : savedOrder
+deactivate DB
+OS --> OC : savedOrder
+deactivate OS
+OC --> Client : OrderCreatedResponse
+deactivate OC
+@enduml
+    </pre>
+
+    <h2>3. API Information</h2>
+    <div class="api-info">
+        <h3 class="class-name">OrderController</h3>
+        <div class="method-name">createOrder</div>
+        <div class="return-type">ResponseEntity&lt;OrderDTO&gt;</div>
+        <div class="parameters">@RequestBody CreateOrderRequest request</div>
+    </div>
+    <div class="api-info">
+        <h3 class="class-name">OrderService</h3>
+        <div class="method-name">createOrder</div>
+        <div class="return-type">Order</div>
+        <div class="parameters">Long userId, List&lt;OrderItem&gt; items</div>
+    </div>
+    <div class="api-info">
+        <h3 class="class-name">UserService</h3>
+        <div class="method-name">getUser</div>
+        <div class="return-type">User</div>
+        <div class="parameters">Long userId</div>
+    </div>
+
+    <h2>4. Sequence Logic</h2>
+    <div class="sequence-logic">
+        1. Client sends a POST request to create an order
+        2. OrderController receives the request and calls OrderService
+        3. OrderService fetches the user from UserService
+        4. OrderService creates a new Order object
+        5. OrderService saves the order to the database
+        6. OrderController returns the created order details to the client
+    </div>
+
+    <h2>5. Exposed APIs</h2>
+    <div class="exposed-api">POST /api/v1/orders - Create a new order</div>
+    <div class="exposed-api">GET /api/v1/orders/{orderId} - Get order details</div>
+    <div class="exposed-api">PUT /api/v1/orders/{orderId}/status - Update order status</div>
+
+    <h2>6. External API Calls</h2>
+    <div class="external-api-call">POST https://payment-gateway.com/api/process - Process payment for order</div>
+    <div class="external-api-call">GET https://shipping-service.com/api/rates - Get shipping rates</div>
+
+</body>
+</html>

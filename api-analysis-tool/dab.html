@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sample DAB Document</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.2.1/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+  <style>
+    .mermaid {
+      width: 100%;
+      height: 500px;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .mermaid svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      max-width: 100%;
+      height: 100%;
+    }
+  </style>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: false,
+        htmlLabels: true
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+      mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+
+      setTimeout(function () {
+        document.querySelectorAll('.mermaid').forEach(function (element) {
+          var svg = element.querySelector('svg');
+          if (svg) {
+            svgPanZoom(svg, {
+              zoomEnabled: true,
+              controlIconsEnabled: true,
+              fit: true,
+              center: true,
+              minZoom: 0.5,
+              maxZoom: 2
+            });
+          }
+        });
+      }, 1000); // Wait for Mermaid to render
+    });
+  </script>
+</head>
+
+<body>
+  <h1>Sample DAB Document for Project X</h1>
+  <h2>1. Class Diagram</h2>
+  <pre class="mermaid">
+    classDiagram
+    class User {
+    +Long id
+    +String username
+    +String email
+    +getId()
+    +getUsername()
+    +setUsername()
+    +getEmail()
+    +setEmail()
+    }
+
+    class Order {
+    +Long id
+    +Long userId
+    +BigDecimal totalAmount
+    +OrderStatus status
+    +getId()
+    +getUserId()
+    +getTotalAmount()
+    +getStatus()
+    +setStatus()
+    }
+
+    class OrderStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    PENDING
+    PROCESSING
+    SHIPPED
+    DELIVERED
+    }
+
+    User "1" -- "*" Order : places
+    Order -- OrderStatus : has
+  </pre>
+
+  <h2>2. Sequence Diagram</h2>
+  <div class="mermaid">
+    sequenceDiagram
+    participant Client
+    participant OC as OrderController
+    participant OS as OrderService
+    participant US as UserService
+    participant O as Order
+    participant DB as Database
+
+    Client ->> OC : POST /orders
+    OC ->> OS : createOrder(userId, items)
+    OS ->> US : getUser(userId)
+    US -->> OS : User
+    OS ->> O : new Order(user, items)
+    O -->> OS : order
+    OS ->> DB : save(order)
+    DB -->> OS : savedOrder
+    OS -->> OC : savedOrder
+    OC -->> Client : OrderCreatedResponse
+  </div>
+
+  <h2>3. API Information</h2>
+  <div class="api-info">
+    <h3 class="class-name">OrderController</h3>
+    <div class="method-name">createOrder</div>
+    <div class="return-type">ResponseEntity&lt;OrderDTO&gt;</div>
+    <div class="parameters">@RequestBody CreateOrderRequest request</div>
+  </div>
+  <div class="api-info">
+    <h3 class="class-name">OrderService</h3>
+    <div class="method-name">createOrder</div>
+    <div class="return-type">Order</div>
+    <div class="parameters">Long userId, List&lt;OrderItem&gt; items</div>
+  </div>
+  <div class="api-info">
+    <h3 class="class-name">UserService</h3>
+    <div class="method-name">getUser</div>
+    <div class="return-type">User</div>
+    <div class="parameters">Long userId</div>
+  </div>
+
+  <h2>4. Sequence Logic</h2>
+  <div class="sequence-logic">
+    1. Client sends a POST request to create an order
+    2. OrderController receives the request and calls OrderService
+    3. OrderService fetches the user from UserService
+    4. OrderService creates a new Order object
+    5. OrderService saves the order to the database
+    6. OrderController returns the created order details to the client
+  </div>
+
+  <h2>5. Exposed APIs</h2>
+  <div class="exposed-api">POST /api/v1/orders - Create a new order</div>
+  <div class="exposed-api">GET /api/v1/orders/{orderId} - Get order details</div>
+  <div class="exposed-api">PUT /api/v1/orders/{orderId}/status - Update order status</div>
+
+  <h2>6. External API Calls</h2>
+  <div class="external-api-call">POST https://payment-gateway.com/api/process - Process payment for order</div>
+  <div class="external-api-call">GET https://shipping-service.com/api/rates - Get shipping rates</div>
+
+</body>
+
+</html>

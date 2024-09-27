@@ -1,0 +1,191 @@
+<html><head><style>
+.match { background-color: #e6ffe6; }
+.missing { background-color: #ffe6e6; }
+.extra { background-color: #e6e6ff; }
+</style></head><body>
+<h1>Diagram Comparison for bookstore</h1>
+<p>Matching Score: 1.14%</p>
+<p>Structural Similarity: NaN%</p>
+<h2>Differences</h2>
+<pre>
+<span class="match">@startuml</span>
+<span class="missing">skinparam sequenceArrowThickness 2</span>
+<span class="missing">skinparam roundcorner 20</span>
+<span class="missing">skinparam maxmessagesize 60</span>
+<span class="missing">skinparam responseMessageBelowArrow true</span>
+<span class="missing">skinparam ParticipantPadding 20</span>
+<span class="missing">skinparam BoxPadding 10</span>
+<span class="missing"></span>
+<span class="missing">actor Client</span>
+<span class="missing">participant BookController</span>
+<span class="missing">participant AuthorServiceClient</span>
+<span class="missing">participant BookService</span>
+<span class="missing">participant localhost</span>
+<span class="missing">database BookDB</span>
+<span class="missing"></span>
+<span class="missing">== com/example/controller/BookController.getAllBooks ==</span>
+<span class="missing">Client -> BookController : GET /api/books</span>
+<span class="missing">activate BookController</span>
+<span class="missing">note over BookController : @GetMapping</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">BookController -> BookService : getAllBooks()</span>
+<span class="missing">activate BookService</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">BookService -> BookRepository : findAll()</span>
+<span class="missing">activate BookRepository</span>
+<span class="missing">BookRepository -> BookDB : execute query</span>
+<span class="missing">activate BookDB</span>
+<span class="missing">BookDB --> BookRepository : return data</span>
+<span class="missing">deactivate BookDB</span>
+<span class="missing">BookRepository --> BookService : return java.util.List</span>
+<span class="missing">deactivate BookRepository</span>
+<span class="missing">BookService --> BookController : return java.util.List</span>
+<span class="missing">deactivate BookService</span>
+<span class="missing">BookController --> Client : HTTP Response (java.util.List)</span>
+<span class="missing">deactivate BookController</span>
+<span class="missing"></span>
+<span class="missing">== com/example/controller/BookController.getBookById ==</span>
+<span class="missing">Client -> BookController : GET /api/books/{id}</span>
+<span class="missing">activate BookController</span>
+<span class="missing">note over BookController : @GetMapping</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookController -> BookService : getBookById(java.lang.Long)</span>
+<span class="missing">activate BookService</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookService -> BookRepository : findById(java.lang.Object)</span>
+<span class="missing">activate BookRepository</span>
+<span class="missing">BookRepository -> BookDB : execute query</span>
+<span class="missing">activate BookDB</span>
+<span class="missing">BookDB --> BookRepository : return data</span>
+<span class="missing">deactivate BookDB</span>
+<span class="missing">BookRepository --> BookService : return java.util.Optional</span>
+<span class="missing">deactivate BookRepository</span>
+<span class="missing">BookService --> BookController : return java.util.Optional</span>
+<span class="missing">deactivate BookService</span>
+<span class="missing">note over BookController</span>
+<span class="missing">Lambda or Method Reference: apply</span>
+<span class="missing">Descriptor: ()Ljava/util/function/Function;</span>
+<span class="missing">end note</span>
+<span class="missing">BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)</span>
+<span class="missing">deactivate BookController</span>
+<span class="missing"></span>
+<span class="missing">== com/example/controller/BookController.createBook ==</span>
+<span class="missing">Client -> BookController : POST /api/books</span>
+<span class="missing">activate BookController</span>
+<span class="missing">note over BookController : @PostMapping</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookController -> BookService : createBook(com.example.model.Book)</span>
+<span class="missing">activate BookService</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookService -> BookRepository : save(java.lang.Object)</span>
+<span class="missing">activate BookRepository</span>
+<span class="missing">BookRepository -> BookDB : execute query</span>
+<span class="missing">activate BookDB</span>
+<span class="missing">BookDB --> BookRepository : return data</span>
+<span class="missing">deactivate BookDB</span>
+<span class="missing">BookRepository --> BookService : return java.lang.Object</span>
+<span class="missing">deactivate BookRepository</span>
+<span class="missing">BookService --> BookController : return com.example.model.Book</span>
+<span class="missing">deactivate BookService</span>
+<span class="missing">BookController --> Client : HTTP Response (com.example.model.Book)</span>
+<span class="missing">deactivate BookController</span>
+<span class="missing"></span>
+<span class="missing">== com/example/controller/BookController.updateBook ==</span>
+<span class="missing">Client -> BookController : PUT /api/books/{id}</span>
+<span class="missing">activate BookController</span>
+<span class="missing">note over BookController : @PutMapping</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">note over UnknownClass : Load var2</span>
+<span class="missing">BookController -> BookService : updateBook(java.lang.Long, com.example.model.Book)</span>
+<span class="missing">activate BookService</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookService -> BookRepository : findById(java.lang.Object)</span>
+<span class="missing">activate BookRepository</span>
+<span class="missing">BookRepository -> BookDB : execute query</span>
+<span class="missing">activate BookDB</span>
+<span class="missing">BookDB --> BookRepository : return data</span>
+<span class="missing">deactivate BookDB</span>
+<span class="missing">BookRepository --> BookService : return java.util.Optional</span>
+<span class="missing">deactivate BookRepository</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var2</span>
+<span class="missing">note over BookService</span>
+<span class="missing">Lambda or Method Reference: apply</span>
+<span class="missing">Descriptor: (Lcom/example/service/impl/BookServiceImpl;Lcom/example/model/Book;)Ljava/util/function/Function;</span>
+<span class="missing">end note</span>
+<span class="missing">BookService --> BookController : return java.util.Optional</span>
+<span class="missing">deactivate BookService</span>
+<span class="missing">note over BookController</span>
+<span class="missing">Lambda or Method Reference: apply</span>
+<span class="missing">Descriptor: ()Ljava/util/function/Function;</span>
+<span class="missing">end note</span>
+<span class="missing">BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)</span>
+<span class="missing">deactivate BookController</span>
+<span class="missing"></span>
+<span class="missing">== com/example/controller/BookController.deleteBook ==</span>
+<span class="missing">Client -> BookController : DELETE /api/books/{id}</span>
+<span class="missing">activate BookController</span>
+<span class="missing">note over BookController : @DeleteMapping</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookController -> BookService : deleteBook(java.lang.Long)</span>
+<span class="missing">activate BookService</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookService -> BookRepository : deleteById(java.lang.Object)</span>
+<span class="missing">activate BookRepository</span>
+<span class="missing">BookRepository -> BookDB : execute query</span>
+<span class="missing">activate BookDB</span>
+<span class="missing">BookDB --> BookRepository : return data</span>
+<span class="missing">deactivate BookDB</span>
+<span class="missing">BookRepository --> BookService : return void</span>
+<span class="missing">deactivate BookRepository</span>
+<span class="missing">BookService --> BookController : return void</span>
+<span class="missing">deactivate BookService</span>
+<span class="missing">BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)</span>
+<span class="missing">deactivate BookController</span>
+<span class="missing"></span>
+<span class="missing">== com/example/controller/BookController.getBookWithAuthor ==</span>
+<span class="missing">Client -> BookController : GET /api/books/{id}/with-author</span>
+<span class="missing">activate BookController</span>
+<span class="missing">note over BookController : @GetMapping</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookController -> BookService : getBookWithAuthor(java.lang.Long)</span>
+<span class="missing">activate BookService</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over UnknownClass : Load var1</span>
+<span class="missing">BookService -> BookRepository : findById(java.lang.Object)</span>
+<span class="missing">activate BookRepository</span>
+<span class="missing">BookRepository -> BookDB : execute query</span>
+<span class="missing">activate BookDB</span>
+<span class="missing">BookDB --> BookRepository : return data</span>
+<span class="missing">deactivate BookDB</span>
+<span class="missing">BookRepository --> BookService : return java.util.Optional</span>
+<span class="missing">deactivate BookRepository</span>
+<span class="missing">note over UnknownClass : Load var0</span>
+<span class="missing">note over BookService</span>
+<span class="missing">Lambda or Method Reference: apply</span>
+<span class="missing">Descriptor: (Lcom/example/service/impl/BookServiceImpl;)Ljava/util/function/Function;</span>
+<span class="missing">end note</span>
+<span class="missing">BookService --> BookController : return java.util.Optional</span>
+<span class="missing">deactivate BookService</span>
+<span class="missing">note over BookController</span>
+<span class="missing">Lambda or Method Reference: apply</span>
+<span class="missing">Descriptor: ()Ljava/util/function/Function;</span>
+<span class="missing">end note</span>
+<span class="missing">BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)</span>
+<span class="missing">deactivate BookController</span>
+<span class="missing"></span>
+<span class="match">@enduml</span>
+</pre>
+<h2>Element Relations</h2>
+<ul>
+</ul>
+</body></html>

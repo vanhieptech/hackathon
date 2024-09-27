@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="512edfa3-09d4-47d2-8260-7712e9ad3bde" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/APIAnalysisTool.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/APIAnalysisToolApplication.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/APIInventoryExtractor.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/AnalysisResult.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/CSVGenerator.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/ClassDiagramGenerator.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/ComparisonResult.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/ComponentDiagramGenerator.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/DesignComparator.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/DiffResult.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/DiffType.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/controller/APIAnalysisController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vscode/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/../.vscode/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/uiDesigner.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_authorservice_src_main_java_com_example_authorservice_AuthorServiceApplication.java_1726994659524.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_authorservice_src_main_java_com_example_authorservice_controller_AuthorController.java_1726994731285.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_authorservice_src_main_java_com_example_authorservice_model_Author.java_1726994743345.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_authorservice_src_main_java_com_example_authorservice_repository_AuthorRepository.java_1726994675531.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_authorservice_src_main_java_com_example_authorservice_service_AuthorService.java_1726994715411.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_BookServiceApplication.java_1726974249825.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_controller_BookController.java_1727031736283.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_dto_AuthorDTO.java_1726974412098.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_exception_AuthorNotFoundException.java_1727026236565.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_model_Book.java_1727025998508.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_repository_BookRepository.java_1726974280877.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_service_AuthorServiceClient.java_1727026254577.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_service_BookService.java_1727025980903.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analysis_cache/_Users_macbook_me_hackathon_bookstore_src_main_java_com_example_service_impl_BookServiceImpl.java_1727026291936.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/SequenceDiagramGeneratorCache.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/SequenceDiagramGeneratorStarUML.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/SequenceDiagramGeneratorV1.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/SequenceDiagramGeneratorV2.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/SequenceDiagramGeneratorV3.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/APIAnalysisTool.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/APIInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/APIInfo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/APIScanner.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/CSVExporter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/CSVExporter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/DocumentationGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/DocumentationGenerator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/ExternalCallInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/ExternalCallInfo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/ExternalCallScanner.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/ExternalCallScanner.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/SequenceDiagramGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/SequenceDiagramGenerator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/apianalysistool/UMLGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/UMLGenerator.java" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Enum" />
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="2mTlwrL8AC8VFBurEBopDAZHDLP" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="autoscrollFromSource" value="true" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Application.APIAnalysisTool.executor&quot;: &quot;Debug&quot;,
+    &quot;Application.SequenceDiagramGenerator.executor&quot;: &quot;Run&quot;,
+    &quot;Application.SequenceDiagramGeneratorV2.executor&quot;: &quot;Debug&quot;,
+    &quot;Maven.SequenceDiagramGenerator [clean].executor&quot;: &quot;Run&quot;,
+    &quot;Maven.SequenceDiagramGenerator [install].executor&quot;: &quot;Run&quot;,
+    &quot;Maven.api-analysis-tool [clean].executor&quot;: &quot;Run&quot;,
+    &quot;Maven.api-analysis-tool [install].executor&quot;: &quot;Run&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Spring Boot.APIAnalysisToolApplication.executor&quot;: &quot;Run&quot;,
+    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;vh-diagrams&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/main/resources/static" />
+    </key>
+    <key name="CopyClassDialog.RECENTS_KEY">
+      <recent name="com.example" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Spring Boot.APIAnalysisToolApplication">
+    <configuration name="APIAnalysisTool" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.example.apianalysistool.APIAnalysisTool" />
+      <module name="SequenceDiagramGenerator" />
+      <option name="PROGRAM_PARAMETERS" value="../bookstore/target/book-service-0.0.1-SNAPSHOT.jar" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.example.apianalysistool.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="SequenceDiagramGenerator" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.example.SequenceDiagramGenerator" />
+      <module name="SequenceDiagramGenerator" />
+      <option name="PROGRAM_PARAMETERS" value="--project=../bookstore,BookStore --output-format=puml" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.example.apianalysistool.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="SequenceDiagramGeneratorV2" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.example.SequenceDiagramGeneratorV2" />
+      <module name="SequenceDiagramGenerator" />
+      <option name="PROGRAM_PARAMETERS" value="--project=../bookstore,BookStore --output-format=puml" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.example.apianalysistool.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="APIAnalysisToolApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" temporary="true" nameIsGenerated="true">
+      <module name="SequenceDiagramGenerator" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.example.apianalysistool.APIAnalysisToolApplication" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.example.apianalysistool.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="Application.APIAnalysisTool" />
+      <item itemvalue="Application.SequenceDiagramGeneratorV2" />
+      <item itemvalue="Application.SequenceDiagramGenerator" />
+      <item itemvalue="Spring Boot.APIAnalysisToolApplication" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Spring Boot.APIAnalysisToolApplication" />
+        <item itemvalue="Application.APIAnalysisTool" />
+        <item itemvalue="Application.SequenceDiagramGenerator" />
+        <item itemvalue="Application.SequenceDiagramGeneratorV2" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-28b599e66164-intellij.indexing.shared.core-IU-242.22855.74" />
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-IU-242.22855.74" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="512edfa3-09d4-47d2-8260-7712e9ad3bde" name="Changes" comment="" />
+      <created>1727108690366</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1727108690366</updated>
+      <workItem from="1727108691490" duration="5078000" />
+      <workItem from="1727113794416" duration="24127000" />
+      <workItem from="1727372538201" duration="656000" />
+      <workItem from="1727414377365" duration="12958000" />
+      <workItem from="1727454988521" duration="34000" />
+      <workItem from="1727455024546" duration="6000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
