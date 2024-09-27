@@ -63,7 +63,7 @@ public class UMLGenerator {
 
         // Define participants and build implementation map
         for (ClassNode classNode : allClasses) {
-            if (isService(classNode)) {
+            if (isService(classNode) || isRepository(classNode) || isWebClient(classNode)) {
                 String className = classNode.name.replace('/', '.');
                 String interfaceName = findInterfaceForClass(classNode, allClasses);
                 if (interfaceName != null) {
@@ -90,10 +90,9 @@ public class UMLGenerator {
             uml.append("participant \"").append(entry.getValue()).append("\" as ").append(entry.getValue().replaceAll("[^a-zA-Z0-9]", "_")).append("\n");
         }
 
-        // Generate sequence
+        // Generate sequence for exposed APIs
         for (APIInfo api : apis) {
             String controllerName = participants.get(getClassName(api.getMethodName()));
-
             uml.append("Client -> ").append(controllerName).append(" : ").append(api.getHttpMethod()).append(" ").append(api.getPath()).append("\n");
             uml.append("activate ").append(controllerName).append("\n");
 
@@ -104,6 +103,16 @@ public class UMLGenerator {
 
             uml.append(controllerName).append(" --> Client : response\n");
             uml.append("deactivate ").append(controllerName).append("\n");
+        }
+
+        // Generate sequence for external calls
+        for (ExternalCallInfo externalCall : externalCalls) {
+            String callerName = participants.get(getClassName(externalCall.getPurpose()));
+            String externalServiceName = getExternalServiceName(externalCall.getUrl());
+            uml.append(callerName).append(" -> ").append(externalServiceName).append(" : ").append(externalCall.getHttpMethod()).append(" ").append(externalCall.getUrl()).append("\n");
+            uml.append("activate ").append(externalServiceName).append("\n");
+            uml.append(externalServiceName).append(" --> ").append(callerName).append(" : response\n");
+            uml.append("deactivate ").append(externalServiceName).append("\n");
         }
 
         uml.append("@enduml");
@@ -502,5 +511,22 @@ public class UMLGenerator {
         } catch (IOException e) {
             System.out.println("Error generating text file: " + e.getMessage());
         }
+    }
+
+    private String getExternalServiceName(String url) {
+        try {
+            java.net.URL parsedUrl = new java.net.URL(url);
+            return parsedUrl.getHost();
+        } catch (java.net.MalformedURLException e) {
+            return "ExternalService";
+        }
+    }
+
+    private boolean isRepository(ClassNode classNode) {
+        return classNode.interfaces.stream().anyMatch(REPOSITORY_MARKERS::contains);
+    }
+
+    private boolean isWebClient(ClassNode classNode) {
+        return classNode.fields.stream().anyMatch(field -> WEBCLIENT_MARKERS.stream().anyMatch(marker -> field.desc.contains(marker)));
     }
 }

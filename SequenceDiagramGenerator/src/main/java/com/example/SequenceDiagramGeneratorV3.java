@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 public class SequenceDiagramGeneratorV3 {
     private static final Map<String, Project> projects = new ConcurrentHashMap<>();
-    private static final Logger logger = Logger.getLogger(SequenceDiagramGenerator.class.getName());
+    private static final Logger logger = Logger.getLogger(SequenceDiagramGeneratorV3.class.getName());
     private static CombinedTypeSolver typeSolver;
     private static ParserConfiguration parserConfiguration;
     private static Map<String, String> participantTypes = new HashMap<>();

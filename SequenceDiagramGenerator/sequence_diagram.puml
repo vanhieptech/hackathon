@@ -2,21 +2,31 @@
 skinparam sequenceArrowThickness 2
 skinparam roundcorner 20
 skinparam maxmessagesize 60
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
 
 actor Client
 participant BookController
+participant AuthorServiceClient
 participant BookService
+participant localhost
 database BookDB
 
 == com/example/controller/BookController.getAllBooks ==
 Client -> BookController : GET /api/books
 activate BookController
-BookController -> BookService : getAllBooks
+note over BookController : @GetMapping
+note over UnknownClass : Load var0
+BookController -> BookService : getAllBooks()
 activate BookService
-BookService -> BookRepository : findAll
+note over UnknownClass : Load var0
+BookService -> BookRepository : findAll()
 activate BookRepository
 BookRepository -> BookDB : execute query
+activate BookDB
 BookDB --> BookRepository : return data
+deactivate BookDB
 BookRepository --> BookService : return java.util.List
 deactivate BookRepository
 BookService --> BookController : return java.util.List
@@ -27,28 +37,46 @@ deactivate BookController
 == com/example/controller/BookController.getBookById ==
 Client -> BookController : GET /api/books/{id}
 activate BookController
-BookController -> BookService : getBookById
+note over BookController : @GetMapping
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookController -> BookService : getBookById(java.lang.Long)
 activate BookService
-BookService -> BookRepository : findById
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookService -> BookRepository : findById(java.lang.Object)
 activate BookRepository
 BookRepository -> BookDB : execute query
+activate BookDB
 BookDB --> BookRepository : return data
+deactivate BookDB
 BookRepository --> BookService : return java.util.Optional
 deactivate BookRepository
 BookService --> BookController : return java.util.Optional
 deactivate BookService
+note over BookController
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
 BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)
 deactivate BookController
 
 == com/example/controller/BookController.createBook ==
 Client -> BookController : POST /api/books
 activate BookController
-BookController -> BookService : createBook
+note over BookController : @PostMapping
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookController -> BookService : createBook(com.example.model.Book)
 activate BookService
-BookService -> BookRepository : save
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookService -> BookRepository : save(java.lang.Object)
 activate BookRepository
 BookRepository -> BookDB : execute query
+activate BookDB
 BookDB --> BookRepository : return data
+deactivate BookDB
 BookRepository --> BookService : return java.lang.Object
 deactivate BookRepository
 BookService --> BookController : return com.example.model.Book
@@ -59,28 +87,53 @@ deactivate BookController
 == com/example/controller/BookController.updateBook ==
 Client -> BookController : PUT /api/books/{id}
 activate BookController
-BookController -> BookService : updateBook
+note over BookController : @PutMapping
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+note over UnknownClass : Load var2
+BookController -> BookService : updateBook(java.lang.Long, com.example.model.Book)
 activate BookService
-BookService -> BookRepository : findById
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookService -> BookRepository : findById(java.lang.Object)
 activate BookRepository
 BookRepository -> BookDB : execute query
+activate BookDB
 BookDB --> BookRepository : return data
+deactivate BookDB
 BookRepository --> BookService : return java.util.Optional
 deactivate BookRepository
+note over UnknownClass : Load var0
+note over UnknownClass : Load var2
+note over BookService
+Lambda or Method Reference: apply
+Descriptor: (Lcom/example/service/impl/BookServiceImpl;Lcom/example/model/Book;)Ljava/util/function/Function;
+end note
 BookService --> BookController : return java.util.Optional
 deactivate BookService
+note over BookController
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
 BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)
 deactivate BookController
 
 == com/example/controller/BookController.deleteBook ==
 Client -> BookController : DELETE /api/books/{id}
 activate BookController
-BookController -> BookService : deleteBook
+note over BookController : @DeleteMapping
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookController -> BookService : deleteBook(java.lang.Long)
 activate BookService
-BookService -> BookRepository : deleteById
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookService -> BookRepository : deleteById(java.lang.Object)
 activate BookRepository
 BookRepository -> BookDB : execute query
+activate BookDB
 BookDB --> BookRepository : return data
+deactivate BookDB
 BookRepository --> BookService : return void
 deactivate BookRepository
 BookService --> BookController : return void
@@ -91,27 +144,33 @@ deactivate BookController
 == com/example/controller/BookController.getBookWithAuthor ==
 Client -> BookController : GET /api/books/{id}/with-author
 activate BookController
-BookController -> BookService : getBookWithAuthor
+note over BookController : @GetMapping
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookController -> BookService : getBookWithAuthor(java.lang.Long)
 activate BookService
-BookService -> BookRepository : findById
+note over UnknownClass : Load var0
+note over UnknownClass : Load var1
+BookService -> BookRepository : findById(java.lang.Object)
 activate BookRepository
 BookRepository -> BookDB : execute query
+activate BookDB
 BookDB --> BookRepository : return data
+deactivate BookDB
 BookRepository --> BookService : return java.util.Optional
 deactivate BookRepository
+note over UnknownClass : Load var0
+note over BookService
+Lambda or Method Reference: apply
+Descriptor: (Lcom/example/service/impl/BookServiceImpl;)Ljava/util/function/Function;
+end note
 BookService --> BookController : return java.util.Optional
 deactivate BookService
+note over BookController
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
 BookController --> Client : HTTP Response (org.springframework.http.ResponseEntity)
 deactivate BookController
 
-AuthorServiceClient -> AuthorServiceClient : call method
-activate AuthorServiceClient
-note over AuthorServiceClient : Class not found
-AuthorServiceClient --> AuthorServiceClient : return data
-deactivate AuthorServiceClient
-AuthorServiceClient -> AuthorServiceClient : call method
-activate AuthorServiceClient
-note over AuthorServiceClient : Class not found
-AuthorServiceClient --> AuthorServiceClient : return data
-deactivate AuthorServiceClient
 @enduml
