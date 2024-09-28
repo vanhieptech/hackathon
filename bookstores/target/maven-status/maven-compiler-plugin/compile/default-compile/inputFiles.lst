@@ -1,0 +1,9 @@
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/service/AuthorServiceClient.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/exception/AuthorNotFoundException.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/BookServiceApplication.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/service/BookService.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/dto/AuthorDTO.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/model/Book.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/controller/BookController.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/repository/BookRepository.java
+/Users/macbook/me/hackathon/bookstores/src/main/java/com/example/service/impl/BookServiceImpl.java
