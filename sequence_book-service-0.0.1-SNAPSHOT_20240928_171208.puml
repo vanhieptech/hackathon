@@ -1,0 +1,945 @@
+@startuml
+!pragma teoz true
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+skinparam maxmessagesize 60
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam SequenceGroupBodyBackgroundColor transparent
+skinparam SequenceGroupBorderColor gray
+skinparam SequenceGroupFontStyle italic
+
+actor Client
+participant BookController
+participant AuthorServiceClient
+participant BookService
+participant localhost
+database BookDB
+
+== com/example/controller/BookController.<init> ==
+"Client" -> "BookController" : null /api/books
+activate "BookController"
+note over BookController : Load var0:Object
+"BookController" -> "Object" : <init>()
+activate "Object"
+note over ClassPathIndexFile : Load var0:Object
+"ClassPathIndexFile" -> "Object" : <init>()
+activate "Object"
+"Object" --> "ClassPathIndexFile" : return void
+deactivate "Object"
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile : Load var1:Object
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile : Load var2:Object
+"ClassPathIndexFile" -> "List" : stream()
+activate "List"
+"List" --> "ClassPathIndexFile" : return java.util.stream.Stream
+deactivate "List"
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile
+Lambda or Method Reference: apply
+Descriptor: (Lorg/springframework/boot/loader/ClassPathIndexFile;)Ljava/util/function/Function;
+end note
+"ClassPathIndexFile" -> "Stream" : map(java.util.function.Function)
+activate "Stream"
+"Stream" --> "ClassPathIndexFile" : return java.util.stream.Stream
+deactivate "Stream"
+"ClassPathIndexFile" -> "Collectors" : toList()
+activate "Collectors"
+"Collectors" --> "ClassPathIndexFile" : return java.util.stream.Collector
+deactivate "Collectors"
+"ClassPathIndexFile" -> "Stream" : collect(java.util.stream.Collector)
+activate "Stream"
+"Stream" --> "ClassPathIndexFile" : return java.lang.Object
+deactivate "Stream"
+"Object" --> "BookController" : return void
+deactivate "Object"
+note over BookController : Load var0:Object
+note over BookController : Load var1:Object
+"BookController" --> "Client" : HTTP Response (void)
+deactivate "BookController"
+
+== com/example/controller/BookController.getAllBooks ==
+"Client" -> "BookController" : GET /api/books
+activate "BookController"
+note over BookController : @GetMapping
+note over BookController : Load var0:Object
+"BookController" -> "BookService" : getAllBooks()
+activate "BookService"
+note over BookService : Load var0:Object
+"BookService" -> "JpaRepository" : findAll()
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.List
+deactivate "JpaRepository"
+"BookService" --> "BookController" : return java.util.List
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (java.util.List)
+deactivate "BookController"
+
+== com/example/controller/BookController.getBookById ==
+"Client" -> "BookController" : GET /api/books/{id}
+activate "BookController"
+note over BookController : @GetMapping
+note over BookController : Load var0:Object
+note over BookController : Load var1:Object
+"BookController" -> "BookService" : getBookById(java.lang.Long)
+activate "BookService"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : findById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.Optional
+deactivate "JpaRepository"
+"BookService" --> "BookController" : return java.util.Optional
+deactivate "BookService"
+note over BookController
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
+"BookController" -> "Optional" : map(java.util.function.Function)
+activate "Optional"
+"Optional" --> "BookController" : return java.util.Optional
+deactivate "Optional"
+"BookController" -> "ResponseEntity" : notFound()
+activate "ResponseEntity"
+"ResponseEntity" --> "BookController" : return org.springframework.http.ResponseEntity$HeadersBuilder
+deactivate "ResponseEntity"
+"BookController" -> "ResponseEntity$HeadersBuilder" : build()
+activate "ResponseEntity$HeadersBuilder"
+"ResponseEntity$HeadersBuilder" --> "BookController" : return org.springframework.http.ResponseEntity
+deactivate "ResponseEntity$HeadersBuilder"
+"BookController" -> "Optional" : orElse(java.lang.Object)
+activate "Optional"
+"Optional" --> "BookController" : return java.lang.Object
+deactivate "Optional"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/controller/BookController.createBook ==
+"Client" -> "BookController" : POST /api/books
+activate "BookController"
+note over BookController : @PostMapping
+note over BookController : Load var0:Object
+note over BookController : Load var1:Object
+"BookController" -> "BookService" : createBook(com.example.model.Book)
+activate "BookService"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : save(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.lang.Object
+deactivate "JpaRepository"
+"BookService" --> "BookController" : return com.example.model.Book
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (com.example.model.Book)
+deactivate "BookController"
+
+== com/example/controller/BookController.updateBook ==
+"Client" -> "BookController" : PUT /api/books/{id}
+activate "BookController"
+note over BookController : @PutMapping
+note over BookController : Load var0:Object
+note over BookController : Load var1:Object
+note over BookController : Load var2:Object
+"BookController" -> "BookService" : updateBook(java.lang.Long, com.example.model.Book)
+activate "BookService"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : findById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.Optional
+deactivate "JpaRepository"
+note over BookService : Load var0:Object
+note over BookService : Load var2:Object
+note over BookService
+Lambda or Method Reference: apply
+Descriptor: (Lcom/example/service/impl/BookServiceImpl;Lcom/example/model/Book;)Ljava/util/function/Function;
+end note
+"BookService" -> "Optional" : map(java.util.function.Function)
+activate "Optional"
+"Optional" --> "BookService" : return java.util.Optional
+deactivate "Optional"
+"BookService" --> "BookController" : return java.util.Optional
+deactivate "BookService"
+note over BookController
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
+"BookController" -> "Optional" : map(java.util.function.Function)
+activate "Optional"
+"Optional" --> "BookController" : return java.util.Optional
+deactivate "Optional"
+"BookController" -> "ResponseEntity" : notFound()
+activate "ResponseEntity"
+"ResponseEntity" --> "BookController" : return org.springframework.http.ResponseEntity$HeadersBuilder
+deactivate "ResponseEntity"
+"BookController" -> "ResponseEntity$HeadersBuilder" : build()
+activate "ResponseEntity$HeadersBuilder"
+"ResponseEntity$HeadersBuilder" --> "BookController" : return org.springframework.http.ResponseEntity
+deactivate "ResponseEntity$HeadersBuilder"
+"BookController" -> "Optional" : orElse(java.lang.Object)
+activate "Optional"
+"Optional" --> "BookController" : return java.lang.Object
+deactivate "Optional"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/controller/BookController.deleteBook ==
+"Client" -> "BookController" : DELETE /api/books/{id}
+activate "BookController"
+note over BookController : @DeleteMapping
+note over BookController : Load var0:Object
+note over BookController : Load var1:Object
+"BookController" -> "BookService" : deleteBook(java.lang.Long)
+activate "BookService"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : deleteById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return void
+deactivate "JpaRepository"
+"BookService" --> "BookController" : return void
+deactivate "BookService"
+"BookController" -> "ResponseEntity" : ok()
+activate "ResponseEntity"
+"ResponseEntity" --> "BookController" : return org.springframework.http.ResponseEntity$BodyBuilder
+deactivate "ResponseEntity"
+"BookController" -> "ResponseEntity$BodyBuilder" : build()
+activate "ResponseEntity$BodyBuilder"
+"ResponseEntity$BodyBuilder" --> "BookController" : return org.springframework.http.ResponseEntity
+deactivate "ResponseEntity$BodyBuilder"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/controller/BookController.getBookWithAuthor ==
+"Client" -> "BookController" : GET /api/books/{id}/with-author
+activate "BookController"
+note over BookController : @GetMapping
+note over BookController : Load var0:Object
+note over BookController : Load var1:Object
+"BookController" -> "BookService" : getBookWithAuthor(java.lang.Long)
+activate "BookService"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : findById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.Optional
+deactivate "JpaRepository"
+note over BookService : Load var0:Object
+note over BookService
+Lambda or Method Reference: apply
+Descriptor: (Lcom/example/service/impl/BookServiceImpl;)Ljava/util/function/Function;
+end note
+"BookService" -> "Optional" : map(java.util.function.Function)
+activate "Optional"
+"Optional" --> "BookService" : return java.util.Optional
+deactivate "Optional"
+"BookService" --> "BookController" : return java.util.Optional
+deactivate "BookService"
+note over BookController
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
+"BookController" -> "Optional" : map(java.util.function.Function)
+activate "Optional"
+"Optional" --> "BookController" : return java.util.Optional
+deactivate "Optional"
+"BookController" -> "ResponseEntity" : notFound()
+activate "ResponseEntity"
+"ResponseEntity" --> "BookController" : return org.springframework.http.ResponseEntity$HeadersBuilder
+deactivate "ResponseEntity"
+"BookController" -> "ResponseEntity$HeadersBuilder" : build()
+activate "ResponseEntity$HeadersBuilder"
+"ResponseEntity$HeadersBuilder" --> "BookController" : return org.springframework.http.ResponseEntity
+deactivate "ResponseEntity$HeadersBuilder"
+"BookController" -> "Optional" : orElse(java.lang.Object)
+activate "Optional"
+"Optional" --> "BookController" : return java.lang.Object
+deactivate "Optional"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/service/impl/BookServiceImpl.<init> ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+"BookService" -> "Object" : <init>()
+activate "Object"
+note over ClassPathIndexFile : Load var0:Object
+"ClassPathIndexFile" -> "Object" : <init>()
+activate "Object"
+"Object" --> "ClassPathIndexFile" : return void
+deactivate "Object"
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile : Load var1:Object
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile : Load var2:Object
+"ClassPathIndexFile" -> "List" : stream()
+activate "List"
+"List" --> "ClassPathIndexFile" : return java.util.stream.Stream
+deactivate "List"
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile
+Lambda or Method Reference: apply
+Descriptor: (Lorg/springframework/boot/loader/ClassPathIndexFile;)Ljava/util/function/Function;
+end note
+"ClassPathIndexFile" -> "Stream" : map(java.util.function.Function)
+activate "Stream"
+"Stream" --> "ClassPathIndexFile" : return java.util.stream.Stream
+deactivate "Stream"
+"ClassPathIndexFile" -> "Collectors" : toList()
+activate "Collectors"
+"Collectors" --> "ClassPathIndexFile" : return java.util.stream.Collector
+deactivate "Collectors"
+"ClassPathIndexFile" -> "Stream" : collect(java.util.stream.Collector)
+activate "Stream"
+"Stream" --> "ClassPathIndexFile" : return java.lang.Object
+deactivate "Stream"
+"Object" --> "BookService" : return void
+deactivate "Object"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+note over BookService : Load var0:Object
+note over BookService : Load var2:Object
+"BookServiceImpl" --> "Client" : HTTP Response (void)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.getAllBooks ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+"BookService" -> "JpaRepository" : findAll()
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.List
+deactivate "JpaRepository"
+"BookServiceImpl" --> "Client" : HTTP Response (java.util.List)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.getBookById ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : findById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.Optional
+deactivate "JpaRepository"
+"BookServiceImpl" --> "Client" : HTTP Response (java.util.Optional)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.createBook ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : save(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.lang.Object
+deactivate "JpaRepository"
+"BookServiceImpl" --> "Client" : HTTP Response (com.example.model.Book)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.updateBook ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : findById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.Optional
+deactivate "JpaRepository"
+note over BookService : Load var0:Object
+note over BookService : Load var2:Object
+note over BookService
+Lambda or Method Reference: apply
+Descriptor: (Lcom/example/service/impl/BookServiceImpl;Lcom/example/model/Book;)Ljava/util/function/Function;
+end note
+"BookService" -> "Optional" : map(java.util.function.Function)
+activate "Optional"
+"Optional" --> "BookService" : return java.util.Optional
+deactivate "Optional"
+"BookServiceImpl" --> "Client" : HTTP Response (java.util.Optional)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.deleteBook ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : deleteById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return void
+deactivate "JpaRepository"
+"BookServiceImpl" --> "Client" : HTTP Response (void)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.getBookWithAuthor ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "JpaRepository" : findById(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.util.Optional
+deactivate "JpaRepository"
+note over BookService : Load var0:Object
+note over BookService
+Lambda or Method Reference: apply
+Descriptor: (Lcom/example/service/impl/BookServiceImpl;)Ljava/util/function/Function;
+end note
+"BookService" -> "Optional" : map(java.util.function.Function)
+activate "Optional"
+"Optional" --> "BookService" : return java.util.Optional
+deactivate "Optional"
+"BookServiceImpl" --> "Client" : HTTP Response (java.util.Optional)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.lambda$getBookWithAuthor$1 ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var0:Object
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getAuthorId()
+activate "Book"
+"Book" --> "BookService" : return java.lang.Long
+deactivate "Book"
+"BookService" -> "AuthorServiceClient" : getAuthor(java.lang.Long)
+activate "AuthorServiceClient"
+note over AuthorServiceClient : Load var0:Object
+"AuthorServiceClient" -> "WebClient" : get()
+activate "WebClient"
+"WebClient" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersUriSpec
+deactivate "WebClient"
+note over AuthorServiceClient : Constant: /api/authors/{id}
+note over AuthorServiceClient : Load var1:Object
+"AuthorServiceClient" -> "WebClient$RequestHeadersUriSpec" : uri(java.lang.String, java.lang.Object[])
+activate "WebClient$RequestHeadersUriSpec"
+"WebClient$RequestHeadersUriSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec
+deactivate "WebClient$RequestHeadersUriSpec"
+"AuthorServiceClient" -> "WebClient$RequestHeadersSpec" : retrieve()
+activate "WebClient$RequestHeadersSpec"
+"WebClient$RequestHeadersSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$RequestHeadersSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient : Load var1:Object
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: (Ljava/lang/Long;)Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient : Constant: Lcom/example/dto/AuthorDTO;
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : bodyToMono(java.lang.Class)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "WebClient$ResponseSpec"
+"AuthorServiceClient" --> "BookService" : return reactor.core.publisher.Mono
+deactivate "AuthorServiceClient"
+"BookService" -> "Mono" : block()
+activate "Mono"
+"Mono" --> "BookService" : return java.lang.Object
+deactivate "Mono"
+note over BookService : Store var2:Object
+note over BookService : Constant: Book: %s, Author: %s, Publication Date: %s
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getTitle()
+activate "Book"
+"Book" --> "BookService" : return java.lang.String
+deactivate "Book"
+note over BookService : Load var2:Object
+"BookService" -> "AuthorDTO" : getName()
+activate "AuthorDTO"
+note over AuthorDTO : Load var0:Object
+"AuthorDTO" --> "BookService" : return java.lang.String
+deactivate "AuthorDTO"
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getPublicationDate()
+activate "Book"
+"Book" --> "BookService" : return java.time.LocalDate
+deactivate "Book"
+"BookService" -> "String" : format(java.lang.String, java.lang.Object[])
+activate "String"
+"String" --> "BookService" : return java.lang.String
+deactivate "String"
+note over BookService : Store var2:Object
+note over BookService : Constant: Book: %s, Author: Not found, Publication Date: %s
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getTitle()
+activate "Book"
+"Book" --> "BookService" : return java.lang.String
+deactivate "Book"
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getPublicationDate()
+activate "Book"
+"Book" --> "BookService" : return java.time.LocalDate
+deactivate "Book"
+"BookService" -> "String" : format(java.lang.String, java.lang.Object[])
+activate "String"
+"String" --> "BookService" : return java.lang.String
+deactivate "String"
+note over BookService : Store var2:Object
+note over BookService : Constant: Book: %s, Author: Error fetching author (%s), Publication Date: %s
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getTitle()
+activate "Book"
+"Book" --> "BookService" : return java.lang.String
+deactivate "Book"
+note over BookService : Load var2:Object
+"BookService" -> "Exception" : getMessage()
+activate "Exception"
+"Exception" --> "BookService" : return java.lang.String
+deactivate "Exception"
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getPublicationDate()
+activate "Book"
+"Book" --> "BookService" : return java.time.LocalDate
+deactivate "Book"
+"BookService" -> "String" : format(java.lang.String, java.lang.Object[])
+activate "String"
+"String" --> "BookService" : return java.lang.String
+deactivate "String"
+group #LightGray Try
+"BookService" -> "Book" : getAuthorId()
+activate "Book"
+"Book" --> "BookService" : return java.lang.Long
+deactivate "Book"
+"BookService" -> "AuthorServiceClient" : getAuthor(java.lang.Long)
+activate "AuthorServiceClient"
+note over AuthorServiceClient : Load var0:Object
+"AuthorServiceClient" -> "WebClient" : get()
+activate "WebClient"
+"WebClient" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersUriSpec
+deactivate "WebClient"
+note over AuthorServiceClient : Constant: /api/authors/{id}
+note over AuthorServiceClient : Load var1:Object
+"AuthorServiceClient" -> "WebClient$RequestHeadersUriSpec" : uri(java.lang.String, java.lang.Object[])
+activate "WebClient$RequestHeadersUriSpec"
+"WebClient$RequestHeadersUriSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec
+deactivate "WebClient$RequestHeadersUriSpec"
+"AuthorServiceClient" -> "WebClient$RequestHeadersSpec" : retrieve()
+activate "WebClient$RequestHeadersSpec"
+"WebClient$RequestHeadersSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$RequestHeadersSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient : Load var1:Object
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: (Ljava/lang/Long;)Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient : Constant: Lcom/example/dto/AuthorDTO;
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : bodyToMono(java.lang.Class)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "WebClient$ResponseSpec"
+"AuthorServiceClient" --> "BookService" : return reactor.core.publisher.Mono
+deactivate "AuthorServiceClient"
+"BookService" -> "Mono" : block()
+activate "Mono"
+"Mono" --> "BookService" : return java.lang.Object
+deactivate "Mono"
+"BookService" -> "Book" : getTitle()
+activate "Book"
+"Book" --> "BookService" : return java.lang.String
+deactivate "Book"
+"BookService" -> "AuthorDTO" : getName()
+activate "AuthorDTO"
+note over AuthorDTO : Load var0:Object
+"AuthorDTO" --> "BookService" : return java.lang.String
+deactivate "AuthorDTO"
+"BookService" -> "Book" : getPublicationDate()
+activate "Book"
+"Book" --> "BookService" : return java.time.LocalDate
+deactivate "Book"
+"BookService" -> "String" : format(java.lang.String, java.lang.Object[])
+activate "String"
+"String" --> "BookService" : return java.lang.String
+deactivate "String"
+end
+group #LightCoral Catch AuthorNotFoundException
+end
+group #LightGray Try
+"BookService" -> "Book" : getAuthorId()
+activate "Book"
+"Book" --> "BookService" : return java.lang.Long
+deactivate "Book"
+"BookService" -> "AuthorServiceClient" : getAuthor(java.lang.Long)
+activate "AuthorServiceClient"
+note over AuthorServiceClient : Load var0:Object
+"AuthorServiceClient" -> "WebClient" : get()
+activate "WebClient"
+"WebClient" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersUriSpec
+deactivate "WebClient"
+note over AuthorServiceClient : Constant: /api/authors/{id}
+note over AuthorServiceClient : Load var1:Object
+"AuthorServiceClient" -> "WebClient$RequestHeadersUriSpec" : uri(java.lang.String, java.lang.Object[])
+activate "WebClient$RequestHeadersUriSpec"
+"WebClient$RequestHeadersUriSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec
+deactivate "WebClient$RequestHeadersUriSpec"
+"AuthorServiceClient" -> "WebClient$RequestHeadersSpec" : retrieve()
+activate "WebClient$RequestHeadersSpec"
+"WebClient$RequestHeadersSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$RequestHeadersSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient : Load var1:Object
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: (Ljava/lang/Long;)Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient : Constant: Lcom/example/dto/AuthorDTO;
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : bodyToMono(java.lang.Class)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "WebClient$ResponseSpec"
+"AuthorServiceClient" --> "BookService" : return reactor.core.publisher.Mono
+deactivate "AuthorServiceClient"
+"BookService" -> "Mono" : block()
+activate "Mono"
+"Mono" --> "BookService" : return java.lang.Object
+deactivate "Mono"
+"BookService" -> "Book" : getTitle()
+activate "Book"
+"Book" --> "BookService" : return java.lang.String
+deactivate "Book"
+"BookService" -> "AuthorDTO" : getName()
+activate "AuthorDTO"
+note over AuthorDTO : Load var0:Object
+"AuthorDTO" --> "BookService" : return java.lang.String
+deactivate "AuthorDTO"
+"BookService" -> "Book" : getPublicationDate()
+activate "Book"
+"Book" --> "BookService" : return java.time.LocalDate
+deactivate "Book"
+"BookService" -> "String" : format(java.lang.String, java.lang.Object[])
+activate "String"
+"String" --> "BookService" : return java.lang.String
+deactivate "String"
+end
+group #LightCoral Catch Exception
+end
+"BookServiceImpl" --> "Client" : HTTP Response (java.lang.String)
+deactivate "BookServiceImpl"
+
+== com/example/service/impl/BookServiceImpl.lambda$updateBook$0 ==
+"Client" -> "BookServiceImpl" : null null
+activate "BookServiceImpl"
+note over BookService : Load var2:Object
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getTitle()
+activate "Book"
+"Book" --> "BookService" : return java.lang.String
+deactivate "Book"
+"BookService" -> "Book" : setTitle(java.lang.String)
+activate "Book"
+"Book" --> "BookService" : return void
+deactivate "Book"
+note over BookService : Load var2:Object
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getIsbn()
+activate "Book"
+"Book" --> "BookService" : return java.lang.String
+deactivate "Book"
+"BookService" -> "Book" : setIsbn(java.lang.String)
+activate "Book"
+"Book" --> "BookService" : return void
+deactivate "Book"
+note over BookService : Load var2:Object
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getAuthorId()
+activate "Book"
+"Book" --> "BookService" : return java.lang.Long
+deactivate "Book"
+"BookService" -> "Book" : setAuthorId(java.lang.Long)
+activate "Book"
+"Book" --> "BookService" : return void
+deactivate "Book"
+note over BookService : Load var2:Object
+note over BookService : Load var1:Object
+"BookService" -> "Book" : getPublicationDate()
+activate "Book"
+"Book" --> "BookService" : return java.time.LocalDate
+deactivate "Book"
+"BookService" -> "Book" : setPublicationDate(java.time.LocalDate)
+activate "Book"
+"Book" --> "BookService" : return void
+deactivate "Book"
+note over BookService : Load var0:Object
+note over BookService : Load var2:Object
+"BookService" -> "JpaRepository" : save(java.lang.Object)
+activate "JpaRepository"
+"JpaRepository" --> "BookService" : return java.lang.Object
+deactivate "JpaRepository"
+"BookServiceImpl" --> "Client" : HTTP Response (com.example.model.Book)
+deactivate "BookServiceImpl"
+
+== com/example/service/AuthorServiceClient.<init> ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note over AuthorServiceClient : Load var0:Object
+"AuthorServiceClient" -> "Object" : <init>()
+activate "Object"
+note over ClassPathIndexFile : Load var0:Object
+"ClassPathIndexFile" -> "Object" : <init>()
+activate "Object"
+"Object" --> "ClassPathIndexFile" : return void
+deactivate "Object"
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile : Load var1:Object
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile : Load var2:Object
+"ClassPathIndexFile" -> "List" : stream()
+activate "List"
+"List" --> "ClassPathIndexFile" : return java.util.stream.Stream
+deactivate "List"
+note over ClassPathIndexFile : Load var0:Object
+note over ClassPathIndexFile
+Lambda or Method Reference: apply
+Descriptor: (Lorg/springframework/boot/loader/ClassPathIndexFile;)Ljava/util/function/Function;
+end note
+"ClassPathIndexFile" -> "Stream" : map(java.util.function.Function)
+activate "Stream"
+"Stream" --> "ClassPathIndexFile" : return java.util.stream.Stream
+deactivate "Stream"
+"ClassPathIndexFile" -> "Collectors" : toList()
+activate "Collectors"
+"Collectors" --> "ClassPathIndexFile" : return java.util.stream.Collector
+deactivate "Collectors"
+"ClassPathIndexFile" -> "Stream" : collect(java.util.stream.Collector)
+activate "Stream"
+"Stream" --> "ClassPathIndexFile" : return java.lang.Object
+deactivate "Stream"
+"Object" --> "AuthorServiceClient" : return void
+deactivate "Object"
+note over AuthorServiceClient : Load var0:Object
+note over AuthorServiceClient : Load var1:Object
+note over AuthorServiceClient : Constant: http://localhost:8081
+"AuthorServiceClient" -> "WebClient$Builder" : baseUrl(java.lang.String)
+activate "WebClient$Builder"
+"WebClient$Builder" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$Builder
+deactivate "WebClient$Builder"
+"AuthorServiceClient" -> "WebClient$Builder" : build()
+activate "WebClient$Builder"
+"WebClient$Builder" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient
+deactivate "WebClient$Builder"
+"AuthorServiceClient" --> "Client" : HTTP Response (void)
+deactivate "AuthorServiceClient"
+
+== com/example/service/AuthorServiceClient.getAuthor ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note over AuthorServiceClient : Load var0:Object
+"AuthorServiceClient" -> "WebClient" : get()
+activate "WebClient"
+"WebClient" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersUriSpec
+deactivate "WebClient"
+note over AuthorServiceClient : Constant: /api/authors/{id}
+note over AuthorServiceClient : Load var1:Object
+"AuthorServiceClient" -> "WebClient$RequestHeadersUriSpec" : uri(java.lang.String, java.lang.Object[])
+activate "WebClient$RequestHeadersUriSpec"
+"WebClient$RequestHeadersUriSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec
+deactivate "WebClient$RequestHeadersUriSpec"
+"AuthorServiceClient" -> "WebClient$RequestHeadersSpec" : retrieve()
+activate "WebClient$RequestHeadersSpec"
+"WebClient$RequestHeadersSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$RequestHeadersSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient : Load var1:Object
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: (Ljava/lang/Long;)Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient
+Lambda or Method Reference: test
+Descriptor: ()Ljava/util/function/Predicate;
+end note
+note over AuthorServiceClient
+Lambda or Method Reference: apply
+Descriptor: ()Ljava/util/function/Function;
+end note
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : onStatus(java.util.function.Predicate, java.util.function.Function)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return org.springframework.web.reactive.function.client.WebClient$ResponseSpec
+deactivate "WebClient$ResponseSpec"
+note over AuthorServiceClient : Constant: Lcom/example/dto/AuthorDTO;
+"AuthorServiceClient" -> "WebClient$ResponseSpec" : bodyToMono(java.lang.Class)
+activate "WebClient$ResponseSpec"
+"WebClient$ResponseSpec" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "WebClient$ResponseSpec"
+"AuthorServiceClient" --> "Client" : HTTP Response (reactor.core.publisher.Mono)
+deactivate "AuthorServiceClient"
+
+== com/example/service/AuthorServiceClient.lambda$getAuthor$1 ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note over AuthorServiceClient : Load var0:Object
+"AuthorServiceClient" -> "ClientResponse" : statusCode()
+activate "ClientResponse"
+"ClientResponse" --> "AuthorServiceClient" : return org.springframework.http.HttpStatus
+deactivate "ClientResponse"
+"AuthorServiceClient" -> "String" : valueOf(java.lang.Object)
+activate "String"
+"String" --> "AuthorServiceClient" : return java.lang.String
+deactivate "String"
+note over AuthorServiceClient
+Lambda or Method Reference: makeConcatWithConstants
+Descriptor: (Ljava/lang/String;)Ljava/lang/String;
+end note
+"AuthorServiceClient" -> "RuntimeException" : <init>(java.lang.String)
+activate "RuntimeException"
+note over AuthorNotFoundException : Load var0:Object
+note over AuthorNotFoundException : Load var1:Object
+"AuthorNotFoundException" -> "RuntimeException" : <init>(java.lang.String)
+activate "RuntimeException"
+"RuntimeException" --> "AuthorNotFoundException" : return void
+deactivate "RuntimeException"
+"RuntimeException" --> "AuthorServiceClient" : return void
+deactivate "RuntimeException"
+"AuthorServiceClient" -> "Mono" : error(java.lang.Throwable)
+activate "Mono"
+"Mono" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "Mono"
+"AuthorServiceClient" --> "Client" : HTTP Response (reactor.core.publisher.Mono)
+deactivate "AuthorServiceClient"
+
+== com/example/service/AuthorServiceClient.lambda$getAuthor$0 ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note over AuthorServiceClient : Load var1:Object
+"AuthorServiceClient" -> "ClientResponse" : statusCode()
+activate "ClientResponse"
+"ClientResponse" --> "AuthorServiceClient" : return org.springframework.http.HttpStatus
+deactivate "ClientResponse"
+alt var1 statusCode() NOT_FOUND
+note over AuthorServiceClient : Load var0:Object
+note over AuthorServiceClient
+Lambda or Method Reference: makeConcatWithConstants
+Descriptor: (Ljava/lang/Long;)Ljava/lang/String;
+end note
+"AuthorServiceClient" -> "AuthorNotFoundException" : <init>(java.lang.String)
+activate "AuthorNotFoundException"
+note over AuthorNotFoundException : Load var0:Object
+note over AuthorNotFoundException : Load var1:Object
+"AuthorNotFoundException" -> "RuntimeException" : <init>(java.lang.String)
+activate "RuntimeException"
+"RuntimeException" --> "AuthorNotFoundException" : return void
+deactivate "RuntimeException"
+"AuthorNotFoundException" --> "AuthorServiceClient" : return void
+deactivate "AuthorNotFoundException"
+"AuthorServiceClient" -> "Mono" : error(java.lang.Throwable)
+activate "Mono"
+"Mono" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "Mono"
+else
+end
+note over AuthorServiceClient : Load var0:Object
+note over AuthorServiceClient
+Lambda or Method Reference: makeConcatWithConstants
+Descriptor: (Ljava/lang/Long;)Ljava/lang/String;
+end note
+"AuthorServiceClient" -> "AuthorNotFoundException" : <init>(java.lang.String)
+activate "AuthorNotFoundException"
+note over AuthorNotFoundException : Load var0:Object
+note over AuthorNotFoundException : Load var1:Object
+"AuthorNotFoundException" -> "RuntimeException" : <init>(java.lang.String)
+activate "RuntimeException"
+"RuntimeException" --> "AuthorNotFoundException" : return void
+deactivate "RuntimeException"
+"AuthorNotFoundException" --> "AuthorServiceClient" : return void
+deactivate "AuthorNotFoundException"
+"AuthorServiceClient" -> "Mono" : error(java.lang.Throwable)
+activate "Mono"
+"Mono" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "Mono"
+note over AuthorServiceClient : Load var1:Object
+"AuthorServiceClient" -> "ClientResponse" : statusCode()
+activate "ClientResponse"
+"ClientResponse" --> "AuthorServiceClient" : return org.springframework.http.HttpStatus
+deactivate "ClientResponse"
+"AuthorServiceClient" -> "String" : valueOf(java.lang.Object)
+activate "String"
+"String" --> "AuthorServiceClient" : return java.lang.String
+deactivate "String"
+note over AuthorServiceClient
+Lambda or Method Reference: makeConcatWithConstants
+Descriptor: (Ljava/lang/String;)Ljava/lang/String;
+end note
+"AuthorServiceClient" -> "RuntimeException" : <init>(java.lang.String)
+activate "RuntimeException"
+note over AuthorNotFoundException : Load var0:Object
+note over AuthorNotFoundException : Load var1:Object
+"AuthorNotFoundException" -> "RuntimeException" : <init>(java.lang.String)
+activate "RuntimeException"
+"RuntimeException" --> "AuthorNotFoundException" : return void
+deactivate "RuntimeException"
+"RuntimeException" --> "AuthorServiceClient" : return void
+deactivate "RuntimeException"
+"AuthorServiceClient" -> "Mono" : error(java.lang.Throwable)
+activate "Mono"
+"Mono" --> "AuthorServiceClient" : return reactor.core.publisher.Mono
+deactivate "Mono"
+"AuthorServiceClient" --> "Client" : HTTP Response (reactor.core.publisher.Mono)
+deactivate "AuthorServiceClient"
+
+@enduml

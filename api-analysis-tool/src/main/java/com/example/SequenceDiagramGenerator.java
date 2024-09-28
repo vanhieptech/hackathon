@@ -158,40 +158,121 @@ public class SequenceDiagramGenerator {
 
   private void processInstruction(StringBuilder sb, AbstractInsnNode insn, MethodNode method,
       List<ClassNode> allClasses, int depth,
-      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls,
-      Set<String> callStack) {
+      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls, Set<String> callStack) {
 
-    if (insn instanceof VarInsnNode) {
-      processVariableInstruction(sb, (VarInsnNode) insn, localVars, callerClass, method);
-    } else if (insn instanceof MethodInsnNode) {
-      processMethodCall(sb, (MethodInsnNode) insn, allClasses, depth, callerClass, localVars, externalCalls, callStack);
-    } else if (insn instanceof JumpInsnNode) {
-      processConditionalFlow(sb, (JumpInsnNode) insn, method, allClasses, depth, callerClass, localVars,
-          externalCalls, callStack);
-    } else if (insn instanceof LdcInsnNode) {
-      processConstantInstruction(sb, (LdcInsnNode) insn, localVars, callerClass);
-    } else if (insn instanceof InvokeDynamicInsnNode) {
-      processLambdaOrMethodReference(sb, (InvokeDynamicInsnNode) insn, allClasses, depth, callerClass, externalCalls,
-          callStack);
-    } else if (insn instanceof LabelNode) {
-      processLabelNode(sb, (LabelNode) insn, method);
+    switch (insn.getOpcode()) {
+      case Opcodes.ILOAD:
+      case Opcodes.LLOAD:
+      case Opcodes.FLOAD:
+      case Opcodes.DLOAD:
+      case Opcodes.ALOAD:
+        processVariableLoad(sb, (VarInsnNode) insn, method, callerClass, localVars);
+        break;
+      case Opcodes.ISTORE:
+      case Opcodes.LSTORE:
+      case Opcodes.FSTORE:
+      case Opcodes.DSTORE:
+      case Opcodes.ASTORE:
+        processVariableStore(sb, (VarInsnNode) insn, method, callerClass, localVars);
+        break;
+      case Opcodes.INVOKEVIRTUAL:
+      case Opcodes.INVOKESPECIAL:
+      case Opcodes.INVOKESTATIC:
+      case Opcodes.INVOKEINTERFACE:
+        processMethodCall(sb, (MethodInsnNode) insn, allClasses, depth, callerClass, localVars, externalCalls,
+            callStack);
+        break;
+      case Opcodes.NEW:
+        processObjectCreation(sb, (TypeInsnNode) insn, callerClass);
+        break;
+      case Opcodes.GETFIELD:
+      case Opcodes.GETSTATIC:
+        processFieldAccess(sb, (FieldInsnNode) insn, callerClass, true);
+        break;
+      case Opcodes.PUTFIELD:
+      case Opcodes.PUTSTATIC:
+        processFieldAccess(sb, (FieldInsnNode) insn, callerClass, false);
+        break;
+      case Opcodes.IFEQ:
+      case Opcodes.IFNE:
+      case Opcodes.IFLT:
+      case Opcodes.IFGE:
+      case Opcodes.IFGT:
+      case Opcodes.IFLE:
+      case Opcodes.IF_ICMPEQ:
+      case Opcodes.IF_ICMPNE:
+      case Opcodes.IF_ICMPLT:
+      case Opcodes.IF_ICMPGE:
+      case Opcodes.IF_ICMPGT:
+      case Opcodes.IF_ICMPLE:
+      case Opcodes.IF_ACMPEQ:
+      case Opcodes.IF_ACMPNE:
+      case Opcodes.IFNULL:
+      case Opcodes.IFNONNULL:
+        processConditionalFlow(sb, (JumpInsnNode) insn, method, allClasses, depth, callerClass, localVars,
+            externalCalls, callStack);
+        break;
+      case Opcodes.ATHROW:
+        processExceptionThrow(sb, callerClass);
+        break;
+      default:
+        // For other instructions, we might want to add a generic note or simply ignore
+        // them
+        logger.debug("Unhandled instruction: {} in {}.{}", insn.getOpcode(), callerClass, method.name);
     }
   }
 
-  private void processVariableInstruction(StringBuilder sb, VarInsnNode varInsn, Map<Integer, String> localVars,
-      String callerClass, MethodNode method) {
+  private void processVariableLoad(StringBuilder sb, VarInsnNode varInsn, MethodNode method, String callerClass,
+      Map<Integer, String> localVars) {
     String varName = getVariableName(varInsn.var, method);
     String varType = getVariableType(varInsn.var, method);
-    String fullVarInfo = varName + ":" + varType;
+    String fullVarInfo = varName + ":" + getDetailedType(varType);
     localVars.put(varInsn.var, fullVarInfo);
 
     String callerName = getInterfaceName(callerClass);
-    String operation = varInsn.getOpcode() == Opcodes.ILOAD || varInsn.getOpcode() == Opcodes.ALOAD ? "Load" : "Store";
+    logger.debug("Load variable: {} in method: {}.{}", fullVarInfo, callerClass, method.name);
 
-    logger.debug("{} variable: {} in method: {}.{}", operation, fullVarInfo, callerClass, method.name);
+    sb.append("note over ").append(callerName).append(" : Load ").append(fullVarInfo).append("\n");
+  }
 
-    sb.append("note over ").append(callerName).append(" : ").append(operation).append(" ").append(fullVarInfo)
-        .append("\n");
+  private void processVariableStore(StringBuilder sb, VarInsnNode varInsn, MethodNode method, String callerClass,
+      Map<Integer, String> localVars) {
+    String varName = getVariableName(varInsn.var, method);
+    String varType = getVariableType(varInsn.var, method);
+    String fullVarInfo = varName + ":" + getDetailedType(varType);
+    localVars.put(varInsn.var, fullVarInfo);
+
+    String callerName = getInterfaceName(callerClass);
+    logger.debug("Store variable: {} in method: {}.{}", fullVarInfo, callerClass, method.name);
+
+    sb.append("note over ").append(callerName).append(" : Store ").append(fullVarInfo).append("\n");
+  }
+
+  private void processObjectCreation(StringBuilder sb, TypeInsnNode typeInsn, String callerClass) {
+    String callerName = getInterfaceName(callerClass);
+    String objectType = getDetailedType(typeInsn.desc);
+    logger.debug("Object creation: {} in class: {}", objectType, callerClass);
+
+    sb.append("note over ").append(callerName).append(" : Create new ").append(objectType).append("\n");
+  }
+
+  private void processFieldAccess(StringBuilder sb, FieldInsnNode fieldInsn, String callerClass, boolean isGet) {
+    String callerName = getInterfaceName(callerClass);
+    String fieldType = getDetailedType(fieldInsn.desc);
+    String operation = isGet ? "Get" : "Set";
+    logger.debug("{} field: {}.{} : {} in class: {}", operation, fieldInsn.owner, fieldInsn.name, fieldType,
+        callerClass);
+
+    sb.append("note over ").append(callerName).append(" : ").append(operation).append(" ")
+        .append(fieldInsn.name).append(":").append(fieldType).append(" from ")
+        .append(getSimpleClassName(fieldInsn.owner)).append("\n");
+  }
+
+  private void processExceptionThrow(StringBuilder sb, String callerClass) {
+    String callerName = getInterfaceName(callerClass);
+    logger.debug("Exception thrown in class: {}", callerClass);
+
+    sb.append("note over ").append(callerName).append(" : Throw exception\n");
   }
 
   private String getVariableName(int index, MethodNode method) {
@@ -202,75 +283,66 @@ public class SequenceDiagramGenerator {
         }
       }
     }
-    return "var" + index;
+    return "local" + index;
   }
 
   private String getVariableType(int index, MethodNode method) {
     if (method.localVariables != null) {
       for (LocalVariableNode lvn : method.localVariables) {
         if (lvn.index == index) {
-          return getSimpleClassName(lvn.desc);
+          return lvn.desc;
         }
       }
     }
-    return "Object";
+    return "Ljava/lang/Object;";
   }
 
-  private String getVariableName(int index, String className, MethodNode methodNode) {
-    if (methodNode.localVariables != null) {
-      for (LocalVariableNode lvn : methodNode.localVariables) {
-        if (lvn.index == index) {
-          return lvn.name;
+  private String getDetailedType(String desc) {
+    if (desc.startsWith("L")) {
+      String className = desc.substring(1, desc.length() - 1).replace('/', '.');
+      if (className.contains("<")) {
+        // Handle generic types
+        int startIndex = className.indexOf('<');
+        int endIndex = className.lastIndexOf('>');
+        String baseType = className.substring(0, startIndex);
+        String genericPart = className.substring(startIndex + 1, endIndex);
+        String[] genericTypes = genericPart.split(";");
+        StringBuilder sb = new StringBuilder(baseType).append('<');
+        for (int i = 0; i < genericTypes.length; i++) {
+          if (i > 0)
+            sb.append(", ");
+          sb.append(getDetailedType(genericTypes[i] + ";"));
         }
+        sb.append('>');
+        return sb.toString();
+      }
+      return className;
+    } else if (desc.startsWith("[")) {
+      return getDetailedType(desc.substring(1)) + "[]";
+    } else {
+      switch (desc) {
+        case "Z":
+          return "boolean";
+        case "B":
+          return "byte";
+        case "C":
+          return "char";
+        case "D":
+          return "double";
+        case "F":
+          return "float";
+        case "I":
+          return "int";
+        case "J":
+          return "long";
+        case "S":
+          return "short";
+        case "V":
+          return "void";
+        default:
+          return desc;
       }
     }
-    if (index < 0 || index >= methodNode.localVariables.size()) {
-      logger.warn("Invalid variable index {} in method {} of class {}", index,
-          methodNode.name, className);
-      return "unknown_var_" + index;
-    }
-    // If LocalVariableTable is not available, use heuristics
-    String simpleClassName = className.substring(className.lastIndexOf('/') + 1);
-
-    // Check if it's 'this' reference
-    if (index == 0 && !isStatic(methodNode.access)) {
-      return "this";
-    }
-
-    // Check if it's a method parameter
-    Type[] argumentTypes = Type.getArgumentTypes(methodNode.desc);
-    if (index <= argumentTypes.length) {
-      String paramType = getSimpleClassName(argumentTypes[index - 1].getClassName());
-      return "param_" + paramType.toLowerCase() + "_" + index;
-    }
-
-    // Generate name based on variable type if available
-    for (AbstractInsnNode insn : methodNode.instructions) {
-      if (insn instanceof VarInsnNode && ((VarInsnNode) insn).var == index) {
-        AbstractInsnNode nextInsn = insn.getNext();
-        if (nextInsn instanceof MethodInsnNode) {
-          MethodInsnNode methodInsn = (MethodInsnNode) nextInsn;
-          String methodName = methodInsn.name;
-          if (methodName.startsWith("set")) {
-            return decapitalize(methodName.substring(3));
-          }
-        }
-      }
-    }
-
-    // Default fallback
-    return "var_" + simpleClassName + "_" + index;
-  }
-
-  private boolean isStatic(int access) {
-    return (access & Opcodes.ACC_STATIC) != 0;
-  }
-
-  private String decapitalize(String str) {
-    if (str == null || str.isEmpty()) {
-      return str;
-    }
-    return Character.toLowerCase(str.charAt(0)) + str.substring(1);
   }
 
   private void processMethodAnnotations(StringBuilder sb, String callerClass, MethodNode method) {
@@ -298,25 +370,32 @@ public class SequenceDiagramGenerator {
     String callerName = getInterfaceName(callerClass);
     String targetName = getInterfaceName(methodInsn.owner);
 
-    // Get parameter types
+    // Get parameter types and names
     Type[] argumentTypes = Type.getArgumentTypes(methodInsn.desc);
     String[] parameterTypes = new String[argumentTypes.length];
+    String[] parameterNames = new String[argumentTypes.length];
+
+    // Extract actual parameter values from the stack
+    List<String> actualParams = extractActualParameters(methodInsn, localVars);
+
+    StringBuilder methodCallSb = new StringBuilder(methodInsn.name).append("(");
     for (int i = 0; i < argumentTypes.length; i++) {
-      parameterTypes[i] = getSimpleClassName(argumentTypes[i].getClassName());
+      if (i > 0)
+        methodCallSb.append(", ");
+      String paramType = getDetailedType(argumentTypes[i].getDescriptor());
+      String paramValue = i < actualParams.size() ? actualParams.get(i) : "?";
+      parameterTypes[i] = paramType;
+      parameterNames[i] = paramValue;
+      methodCallSb.append(paramType).append(" ").append(paramValue);
     }
+    methodCallSb.append(")");
 
     // Get return type
     Type returnType = Type.getReturnType(methodInsn.desc);
-    String returnTypeName = getSimpleClassName(returnType.getClassName());
+    String returnTypeName = getDetailedType(returnType.getDescriptor());
 
-    // Build method call string
-    StringBuilder methodCallSb = new StringBuilder(methodInsn.name).append("(");
-    for (int i = 0; i < parameterTypes.length; i++) {
-      if (i > 0)
-        methodCallSb.append(", ");
-      methodCallSb.append(parameterTypes[i]);
-    }
-    methodCallSb.append(")");
+    logger.debug("Method call: {}.{} -> {}.{}", callerClass, methodInsn.name, methodInsn.owner, methodCallSb);
+    logger.debug("Return type: {}", returnTypeName);
 
     sb.append("\"").append(callerName).append("\" -> \"").append(targetName).append("\" : ")
         .append(methodCallSb).append("\n");
@@ -326,6 +405,7 @@ public class SequenceDiagramGenerator {
     if (targetClass != null) {
       MethodNode targetMethod = findMethodByName(targetClass, methodInsn.name);
       if (targetMethod != null) {
+        logger.debug("Processing method body: {}.{}", targetClass.name, targetMethod.name);
         processMethod(sb, targetMethod, allClasses, depth + 1, targetClass.name, new HashMap<>(localVars),
             externalCalls, new HashSet<>(callStack));
       } else {
@@ -338,6 +418,67 @@ public class SequenceDiagramGenerator {
     sb.append("\"").append(targetName).append("\" --> \"").append(callerName).append("\" : return ")
         .append(returnTypeName).append("\n");
     sb.append("deactivate \"").append(targetName).append("\"\n");
+  }
+
+  private List<String> extractActualParameters(MethodInsnNode methodInsn, Map<Integer, String> localVars) {
+    List<String> params = new ArrayList<>();
+    AbstractInsnNode currentInsn = methodInsn.getPrevious();
+    int paramCount = Type.getArgumentTypes(methodInsn.desc).length;
+
+    while (currentInsn != null && params.size() < paramCount) {
+      if (currentInsn instanceof VarInsnNode) {
+        VarInsnNode varInsn = (VarInsnNode) currentInsn;
+        String varInfo = localVars.get(varInsn.var);
+        if (varInfo != null) {
+          params.add(0, varInfo.split(":")[0]); // Add variable name
+        } else {
+          params.add(0, "local" + varInsn.var);
+        }
+      } else if (currentInsn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) currentInsn;
+        params.add(0, ldcInsn.cst.toString());
+      } else if (currentInsn instanceof MethodInsnNode) {
+        MethodInsnNode prevMethodInsn = (MethodInsnNode) currentInsn;
+        params.add(0, prevMethodInsn.name + "()");
+      }
+      currentInsn = currentInsn.getPrevious();
+    }
+
+    return params;
+  }
+
+  private void processVariableInstruction(StringBuilder sb, VarInsnNode varInsn, MethodNode method, String callerClass,
+      Map<Integer, String> localVars) {
+    String varName = getVariableName(varInsn.var, method);
+    String varType = getDetailedType(getVariableType(varInsn.var, method));
+    String fullVarInfo = varName + ":" + varType;
+    localVars.put(varInsn.var, fullVarInfo);
+
+    String callerName = getInterfaceName(callerClass);
+    String operation = varInsn.getOpcode() == Opcodes.ILOAD || varInsn.getOpcode() == Opcodes.ALOAD ? "Load" : "Store";
+
+    logger.debug("{} variable: {} in method: {}.{}", operation, fullVarInfo, callerClass, method.name);
+
+    sb.append("note over ").append(callerName).append(" : ").append(operation).append(" ").append(fullVarInfo)
+        .append("\n");
+  }
+
+  private String[] getParameterNames(String owner, String methodName, String methodDesc, List<ClassNode> allClasses) {
+    ClassNode classNode = findClassByName(allClasses, owner);
+    if (classNode != null) {
+      for (MethodNode method : classNode.methods) {
+        if (method.name.equals(methodName) && method.desc.equals(methodDesc)) {
+          if (method.localVariables != null) {
+            return method.localVariables.stream()
+                .filter(lv -> lv.index > 0) // Skip 'this' parameter for instance methods
+                .map(lv -> lv.name)
+                .toArray(String[]::new);
+          }
+          break;
+        }
+      }
+    }
+    return null;
   }
 
   private void processLabelNode(StringBuilder sb, LabelNode labelNode, MethodNode method) {
