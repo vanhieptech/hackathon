@@ -1,5 +1,6 @@
 package com.example;
 
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -7,7 +8,12 @@ import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+import java.nio.file.Path;
+import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 public class SequenceDiagramGenerator {
@@ -58,6 +64,11 @@ public class SequenceDiagramGenerator {
         allClasses.size());
     StringBuilder sb = new StringBuilder();
     initializeDiagram(sb);
+
+    // Scan target folder for runtime-generated classes
+    List<ClassNode> runtimeClasses = scanTargetFolder();
+    allClasses.addAll(runtimeClasses);
+
     mapImplementationsToInterfaces(allClasses);
     findWebClientHostNames(allClasses);
     mapMethodAnnotations(allClasses);
@@ -79,6 +90,43 @@ public class SequenceDiagramGenerator {
     return sb.toString();
   }
 
+  private List<ClassNode> scanTargetFolder() {
+    List<ClassNode> runtimeClasses = new ArrayList<>();
+    Path targetPath = Paths.get("target", "classes");
+    logger.info("scanTargetFolder: {}", targetPath);
+    try (Stream<Path> walk = Files.walk(targetPath)) {
+      walk.filter(Files::isRegularFile)
+          .filter(p -> p.toString().endsWith(".class"))
+          .forEach(classFile -> {
+            try {
+              byte[] classBytes = Files.readAllBytes(classFile);
+              ClassReader classReader = new ClassReader(classBytes);
+              ClassNode classNode = new ClassNode();
+              classReader.accept(classNode, ClassReader.EXPAND_FRAMES);
+
+              if (isRuntimeGeneratedClass(classNode)) {
+                runtimeClasses.add(classNode);
+                logger.info("Found runtime-generated class: {}", classNode.name);
+              }
+            } catch (IOException e) {
+              logger.error("Error reading class file: {}", classFile, e);
+            }
+          });
+    } catch (IOException e) {
+      logger.error("Error scanning target folder", e);
+    }
+
+    return runtimeClasses;
+  }
+
+  private boolean isRuntimeGeneratedClass(ClassNode classNode) {
+    // Check for common patterns in runtime-generated classes
+    return classNode.name.contains("$$") || // Proxy classes often contain $$
+        classNode.name.endsWith("EnhancerBySpringCGLIB") || // Spring CGLIB proxies
+        classNode.name.contains("_Accessor_") || // Some frameworks use this pattern
+        classNode.interfaces.stream().anyMatch(i -> i.contains("SpringProxy")); // Spring proxies
+  }
+
   private void initializeDiagram(StringBuilder sb) {
     sb.append("@startuml\n");
     sb.append("!pragma teoz true\n");
@@ -96,7 +144,7 @@ public class SequenceDiagramGenerator {
   private void generateSequenceForAPI(StringBuilder sb, APIInfo api, List<ClassNode> allClasses,
       List<ExternalCallInfo> externalCalls) {
     sb.append("== ").append(api.getMethodName()).append(" ==\n");
-    String controllerName = getSimpleClassName(getClassName(api.getMethodName()));
+    String controllerName = getInterfaceName(getSimpleClassName(getClassName(api.getMethodName())));
     sb.append("\"Client\" -> \"").append(controllerName).append("\" : ")
         .append(api.getHttpMethod()).append(" ").append(api.getPath()).append("\n");
     sb.append("activate \"").append(controllerName).append("\"\n");
@@ -104,7 +152,7 @@ public class SequenceDiagramGenerator {
         .append("  API Entry Point\n")
         .append("end note\n");
 
-    ClassNode controllerClass = findClassByName(allClasses, controllerName);
+    ClassNode controllerClass = findImplementationClass(allClasses, getClassName(api.getMethodName()));
     if (controllerClass != null) {
       MethodNode method = findMethodByName(controllerClass, getMethodName(api.getMethodName()));
       if (method != null) {
@@ -125,49 +173,219 @@ public class SequenceDiagramGenerator {
     }
     processedMethods.add(method.name);
 
+    String interfaceCallerName = getInterfaceName(callerName);
+
+    List<String> injectedDependencies = findInjectedDependencies(method);
+    for (String dependency : injectedDependencies) {
+      sb.append("note over ").append(interfaceCallerName).append(" : Inject ")
+          .append(getInterfaceName(dependency)).append("\n");
+    }
+
     for (AbstractInsnNode insn : method.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
         String calleeName = getSimpleClassName(methodInsn.owner);
+        String interfaceCalleeName = getInterfaceName(calleeName);
 
-        if (isSignificantCall(calleeName)) {
+        if (isSignificantCall(interfaceCalleeName)) {
           String calleeMethod = methodInsn.name;
-          sb.append("\"").append(callerName).append("\" -> \"").append(calleeName).append("\" : ")
+          sb.append("\"").append(interfaceCallerName).append("\" -> \"").append(interfaceCalleeName).append("\" : ")
               .append(calleeMethod).append("\n");
-          sb.append("activate \"").append(calleeName).append("\"\n");
+          sb.append("activate \"").append(interfaceCalleeName).append("\"\n");
 
-          // Add a note for service invocations
-          if (calleeName.endsWith("Service")) {
-            sb.append("note right of \"").append(calleeName).append("\"\n")
-                .append("  Service invocation\n")
-                .append("end note\n");
-          }
+          addLayerLabel(sb, interfaceCalleeName);
 
-          ClassNode calleeClass = findClassByName(allClasses, calleeName);
+          ClassNode calleeClass = findImplementationClass(allClasses, methodInsn.owner);
           if (calleeClass != null) {
             MethodNode calleeMethodNode = findMethodByName(calleeClass, calleeMethod);
             if (calleeMethodNode != null) {
-              processMethodHighLevel(sb, calleeMethodNode, allClasses, depth + 1, calleeName, externalCalls);
+              processMethodHighLevel(sb, calleeMethodNode, allClasses, depth + 1, interfaceCalleeName, externalCalls);
             }
           }
 
-          sb.append("\"").append(calleeName).append("\" --> \"").append(callerName).append("\" : return\n");
-          sb.append("deactivate \"").append(calleeName).append("\"\n");
+          sb.append("\"").append(interfaceCalleeName).append("\" --> \"").append(interfaceCallerName)
+              .append("\" : return\n");
+          sb.append("deactivate \"").append(interfaceCalleeName).append("\"\n");
         }
       }
     }
 
-    // Check for external calls
-    for (ExternalCallInfo externalCall : externalCalls) {
-      if (externalCall.getCallerMethod().equals(method.name)) {
-        sb.append("\"").append(callerName).append("\" -> \"External Service\" : ")
-            .append(externalCall.getHttpMethod()).append(" ").append(externalCall.getUrl()).append("\n");
-        sb.append("note right of \"External Service\"\n")
-            .append("  External API call\n")
-            .append("end note\n");
-        sb.append("\"External Service\" --> \"").append(callerName).append("\" : response\n");
+    processExternalCalls(sb, method, interfaceCallerName, externalCalls);
+    processDatabaseInteractions(sb, method, interfaceCallerName);
+  }
+
+  private String getInterfaceName(String className) {
+    if (className == null) {
+      return "UnknownClass";
+    }
+    String interfaceName = implToInterfaceMap.get(className);
+    return interfaceName != null ? getSimpleClassName(interfaceName) : getSimpleClassName(className);
+  }
+
+  private void addLayerLabel(StringBuilder sb, String className) {
+    if (className.endsWith("Controller")) {
+      sb.append("note over ").append(className).append(" : Controller Layer\n");
+    } else if (className.endsWith("Service")) {
+      sb.append("note over ").append(className).append(" : Service Layer\n");
+    } else if (className.endsWith("Repository")) {
+      sb.append("note over ").append(className).append(" : Repository Layer\n");
+    }
+  }
+
+  private List<String> findInjectedDependencies(MethodNode method) {
+    List<String> injectedDependencies = new ArrayList<>();
+
+    // Check for constructor injections
+    if (method.name.equals("<init>")) {
+      Type[] argumentTypes = Type.getArgumentTypes(method.desc);
+      for (Type argType : argumentTypes) {
+        String typeName = argType.getClassName();
+        if (isInjectedType(typeName)) {
+          injectedDependencies.add(typeName);
+        }
       }
     }
+
+    // Check for @Autowired field injections
+    if (method.visibleAnnotations != null) {
+      for (AnnotationNode annotation : method.visibleAnnotations) {
+        if (annotation.desc.contains("Autowired")) {
+          for (AbstractInsnNode insn : method.instructions) {
+            if (insn instanceof FieldInsnNode) {
+              FieldInsnNode fieldInsn = (FieldInsnNode) insn;
+              String fieldType = Type.getType(fieldInsn.desc).getClassName();
+              if (isInjectedType(fieldType)) {
+                injectedDependencies.add(fieldType);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return injectedDependencies;
+  }
+
+  private boolean isInjectedType(String typeName) {
+    return typeName.endsWith("Service") ||
+        typeName.endsWith("Repository") ||
+        typeName.contains("RestTemplate") ||
+        typeName.contains("WebClient");
+  }
+
+  private void processExternalCalls(StringBuilder sb, MethodNode method, String callerName,
+      List<ExternalCallInfo> externalCalls) {
+
+    for (AbstractInsnNode insn : method.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        String owner = methodInsn.owner.replace('/', '.');
+
+        if (isExternalCallMethod(owner, methodInsn.name)) {
+          ExternalCallInfo matchingCall = findMatchingExternalCall(externalCalls, method.name, methodInsn.name);
+
+          if (matchingCall != null) {
+            sb.append("group External API Call\n");
+            sb.append("\"").append(callerName).append("\" -> \"External Service\" : ")
+                .append(matchingCall.getHttpMethod()).append(" ")
+                .append(matchingCall.getUrl()).append("\n");
+            sb.append("activate \"External Service\"\n");
+
+            sb.append("note right of \"External Service\"\n")
+                .append("  External API: ").append(matchingCall.getUrl()).append("\n")
+                .append("  Method: ").append(matchingCall.getHttpMethod()).append("\n")
+                .append("end note\n");
+
+            sb.append("\"External Service\" --> \"").append(callerName).append("\" : response\n");
+            sb.append("deactivate \"External Service\"\n");
+            sb.append("end\n");
+          }
+        }
+      }
+    }
+  }
+
+  private boolean isExternalCallMethod(String owner, String methodName) {
+    return (owner.contains("RestTemplate") &&
+        (methodName.equals("exchange") || methodName.equals("getForObject") ||
+            methodName.equals("postForObject") || methodName.equals("put") ||
+            methodName.equals("delete")))
+        ||
+        (owner.contains("WebClient") &&
+            (methodName.equals("get") || methodName.equals("post") ||
+                methodName.equals("put") || methodName.equals("delete")));
+  }
+
+  private ExternalCallInfo findMatchingExternalCall(List<ExternalCallInfo> externalCalls,
+      String callerMethod, String calleeMethod) {
+    return externalCalls.stream()
+        .filter(call -> call.getCallerMethod().equals(callerMethod) &&
+            call.getHttpMethod().equalsIgnoreCase(getHttpMethodFromCallee(calleeMethod)))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private String getHttpMethodFromCallee(String calleeMethod) {
+    if (calleeMethod.contains("get"))
+      return "GET";
+    if (calleeMethod.contains("post"))
+      return "POST";
+    if (calleeMethod.contains("put"))
+      return "PUT";
+    if (calleeMethod.contains("delete"))
+      return "DELETE";
+    return "UNKNOWN";
+  }
+
+  private void processDatabaseInteractions(StringBuilder sb, MethodNode method, String callerName) {
+    boolean isTransactional = isTransactionalMethod(method);
+    if (isTransactional) {
+      sb.append("note over ").append(callerName).append(" : @Transactional\n");
+    }
+
+    for (AbstractInsnNode insn : method.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        String owner = methodInsn.owner.replace('/', '.');
+        if (isRepositoryMethod(owner, methodInsn.name)) {
+          String operation = getDatabaseOperation(methodInsn.name);
+          String databaseName = getDatabaseName(owner);
+
+          sb.append("group ").append(operation).append(" Operation\n");
+          sb.append("\"").append(callerName).append("\" -> \"").append(owner).append("\" : ")
+              .append(methodInsn.name).append("\n");
+          sb.append("activate \"").append(owner).append("\"\n");
+
+          sb.append("\"").append(owner).append("\" -> \"").append(databaseName).append("\" : ")
+              .append(operation).append("\n");
+          sb.append("activate \"").append(databaseName).append("\"\n");
+          sb.append("\"").append(databaseName).append("\" --> \"").append(owner).append("\" : return data\n");
+          sb.append("deactivate \"").append(databaseName).append("\"\n");
+
+          sb.append("\"").append(owner).append("\" --> \"").append(callerName).append("\" : return result\n");
+          sb.append("deactivate \"").append(owner).append("\"\n");
+          sb.append("end\n");
+        }
+      }
+    }
+
+    if (isTransactional) {
+      sb.append("note over ").append(callerName).append(" : End Transaction\n");
+    }
+  }
+
+  private boolean isTransactionalMethod(MethodNode method) {
+    return methodToAnnotations.getOrDefault(method.name, Collections.emptySet())
+        .stream()
+        .anyMatch(annotation -> annotation.contains("Transactional"));
+  }
+
+  private boolean isRepositoryMethod(String owner, String methodName) {
+    return owner.endsWith("Repository") ||
+        methodName.startsWith("find") ||
+        methodName.startsWith("save") ||
+        methodName.startsWith("delete") ||
+        methodName.startsWith("update");
   }
 
   private boolean isSignificantCall(String className) {
@@ -525,16 +743,12 @@ public class SequenceDiagramGenerator {
     return null;
   }
 
-  private void processLabelNode(StringBuilder sb, LabelNode labelNode, MethodNode method) {
-    // Check if this label is a loop start
-    for (AbstractInsnNode insn : method.instructions) {
-      if (insn instanceof JumpInsnNode && ((JumpInsnNode) insn).label == labelNode) {
-        if (insn.getOpcode() == Opcodes.GOTO) {
-          sb.append("loop\n");
-          return;
-        }
-      }
+  private String combineInterfaceAndImplementation(String className) {
+    String implementation = implToInterfaceMap.get(className);
+    if (implementation != null) {
+      return implementation + " (impl " + className + ")";
     }
+    return className;
   }
 
   private String getSimplifiedTypeName(String fullTypeName) {
@@ -658,12 +872,10 @@ public class SequenceDiagramGenerator {
     for (ClassNode classNode : allClasses) {
       for (MethodNode method : classNode.methods) {
         if (method.visibleAnnotations != null) {
-          Set<String> annotations = new HashSet<>();
-          for (AnnotationNode annotation : method.visibleAnnotations) {
-            String annotationName = Type.getType(annotation.desc).getClassName();
-            annotations.add("@" + annotationName.substring(annotationName.lastIndexOf('.') + 1));
-          }
-          methodToAnnotations.put(classNode.name + "." + method.name, annotations);
+          Set<String> annotations = method.visibleAnnotations.stream()
+              .map(annotation -> annotation.desc)
+              .collect(Collectors.toSet());
+          methodToAnnotations.put(method.name, annotations);
         }
       }
     }
@@ -671,9 +883,13 @@ public class SequenceDiagramGenerator {
 
   private void mapImplementationsToInterfaces(List<ClassNode> allClasses) {
     for (ClassNode classNode : allClasses) {
-      if (classNode.interfaces != null && !classNode.interfaces.isEmpty()) {
+      if ((classNode.access & Opcodes.ACC_INTERFACE) == 0) {
         for (String interfaceName : classNode.interfaces) {
-          implToInterfaceMap.put(classNode.name, interfaceName);
+          String simpleInterfaceName = getSimpleClassName(interfaceName);
+          String simpleClassName = getSimpleClassName(classNode.name);
+          implToInterfaceMap.put(simpleClassName, simpleInterfaceName);
+          implToInterfaceMap.put(simpleInterfaceName, simpleClassName);
+          logger.debug("Mapped implementation {} to interface {}", simpleClassName, simpleInterfaceName);
         }
       }
     }
@@ -689,76 +905,71 @@ public class SequenceDiagramGenerator {
   }
 
   private void appendParticipants(StringBuilder sb, List<ClassNode> allClasses, List<ExternalCallInfo> externalCalls) {
-    Set<String> controllers = new HashSet<>();
-    Set<String> services = new HashSet<>();
-    Set<String> repositories = new HashSet<>();
-    Set<String> externalServices = new HashSet<>();
+    Set<String> participants = new LinkedHashSet<>();
+    Map<String, String> implToInterfaceMap = new HashMap<>();
+
+    participants.add("Client");
 
     for (ClassNode classNode : allClasses) {
-      String className = getSimpleClassName(classNode.name);
-      if (className.endsWith("Controller")) {
-        controllers.add(className);
-      } else if (className.endsWith("Service") || className.endsWith("ServiceImpl") || isServiceAnnotated(classNode)) {
-        services.add(getInterfaceName(classNode.name));
-      } else if (className.endsWith("Repository")) {
-        repositories.add(className);
-      }
-
-      String hostName = classToHostMap.get(classNode.name);
-      if (hostName != null) {
-        externalServices.add(hostName);
+      String simpleName = getSimpleClassName(classNode.name);
+      if (isController(classNode) || isService(classNode) || isRepository(classNode)) {
+        if ((classNode.access & Opcodes.ACC_INTERFACE) != 0) {
+          participants.add(simpleName);
+        } else {
+          String interfaceName = findMatchingInterface(classNode, allClasses);
+          if (interfaceName != null) {
+            implToInterfaceMap.put(simpleName, interfaceName);
+            participants.add(interfaceName);
+          } else {
+            participants.add(simpleName);
+          }
+        }
       }
     }
 
     for (ExternalCallInfo externalCall : externalCalls) {
-      externalServices.add(getExternalServiceName(externalCall.getUrl()));
+      participants.add(getExternalServiceName(externalCall.getUrl()));
     }
 
-    orderedParticipants.add("Client");
-    sb.append("actor Client\n");
-
-    orderedParticipants.addAll(controllers);
-    for (String controller : controllers) {
-      sb.append("participant ").append(controller).append("\n");
-    }
-
-    orderedParticipants.addAll(services);
-    for (String service : services) {
-      sb.append("participant ").append(service).append("\n");
-    }
-
-    orderedParticipants.addAll(externalServices);
-    for (String externalService : externalServices) {
-      sb.append("participant ").append(externalService).append("\n");
-    }
-
-    orderedParticipants.addAll(repositories);
-    for (String repository : repositories) {
-      String databaseName = getDatabaseName(repository);
-      orderedParticipants.add(databaseName);
-      sb.append("database ").append(databaseName).append("\n");
+    for (String participant : participants) {
+      if (participant.equals("Client")) {
+        sb.append("actor ").append(participant).append("\n");
+      } else if (participant.endsWith("Repository")) {
+        sb.append("database ").append(getDatabaseName(participant)).append("\n");
+      } else {
+        sb.append("participant ").append(participant).append("\n");
+      }
     }
 
     sb.append("\n");
   }
 
-  private boolean isServiceAnnotated(ClassNode classNode) {
-    if (classNode.visibleAnnotations != null) {
-      for (AnnotationNode annotation : classNode.visibleAnnotations) {
-        if (annotation.desc.equals("Lorg/springframework/stereotype/Service;")) {
-          return true;
-        }
-      }
-    }
-    return false;
+  private boolean isController(ClassNode classNode) {
+    return classNode.name.endsWith("Controller") ||
+        (classNode.visibleAnnotations != null &&
+            classNode.visibleAnnotations.stream().anyMatch(a -> a.desc.contains("RestController")));
   }
 
-  private String getInterfaceName(String className) {
-    if (className == null) {
-      return "UnknownClass";
+  private boolean isService(ClassNode classNode) {
+    return classNode.name.endsWith("Service") ||
+        (classNode.visibleAnnotations != null &&
+            classNode.visibleAnnotations.stream().anyMatch(a -> a.desc.contains("Service")));
+  }
+
+  private boolean isRepository(ClassNode classNode) {
+    return classNode.name.endsWith("Repository") ||
+        (classNode.visibleAnnotations != null &&
+            classNode.visibleAnnotations.stream().anyMatch(a -> a.desc.contains("Repository")));
+  }
+
+  private String findMatchingInterface(ClassNode classNode, List<ClassNode> allClasses) {
+    for (String interfaceName : classNode.interfaces) {
+      String simpleInterfaceName = getSimpleClassName(interfaceName);
+      if (allClasses.stream().anyMatch(c -> c.name.equals(interfaceName) && (c.access & Opcodes.ACC_INTERFACE) != 0)) {
+        return simpleInterfaceName;
+      }
     }
-    String interfaceName = implToInterfaceMap.get(className);
-    return interfaceName != null ? getSimpleClassName(interfaceName) : getSimpleClassName(className);
+    return null;
   }
 
   private String getExternalServiceName(String url) {
