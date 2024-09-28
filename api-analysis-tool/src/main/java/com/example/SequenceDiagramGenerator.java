@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 public class SequenceDiagramGenerator {
   private static final Logger logger = LoggerFactory.getLogger(SequenceDiagramGenerator.class);
+  private static final int MAX_DEPTH = 10;
   private final Map<String, ClassNode> implementationCache = new HashMap<>();
 
   private final Set<String> processedMethods = new HashSet<>();
@@ -52,7 +53,7 @@ public class SequenceDiagramGenerator {
     customRules.add(matcher);
   }
 
-  public String generateSequenceDiagram(List<ClassNode> allClasses) {
+  public String generateSequenceDiagram(List<ClassNode> allClasses, Map<String, ClassInfo> sourceCodeInfo) {
     logger.info("Starting sequence diagram generation for {} classes",
         allClasses.size());
     StringBuilder sb = new StringBuilder();
@@ -61,7 +62,7 @@ public class SequenceDiagramGenerator {
     findWebClientHostNames(allClasses);
     mapMethodAnnotations(allClasses);
 
-    List<APIInfo> exposedApis = new APIInventoryExtractor().extractAPIs(allClasses);
+    List<APIInfo> exposedApis = new APIInventoryExtractor().extractExposedAPIs(allClasses);
     List<ExternalCallInfo> externalCalls = new ExternalCallScanner().findExternalCalls(allClasses);
 
     logger.info("Found {} exposed APIs and {} external calls",
@@ -99,19 +100,82 @@ public class SequenceDiagramGenerator {
     sb.append("\"Client\" -> \"").append(controllerName).append("\" : ")
         .append(api.getHttpMethod()).append(" ").append(api.getPath()).append("\n");
     sb.append("activate \"").append(controllerName).append("\"\n");
+    sb.append("note right of \"").append(controllerName).append("\"\n")
+        .append("  API Entry Point\n")
+        .append("end note\n");
 
     ClassNode controllerClass = findClassByName(allClasses, controllerName);
     if (controllerClass != null) {
       MethodNode method = findMethodByName(controllerClass, getMethodName(api.getMethodName()));
       if (method != null) {
         processedMethods.clear();
-        processMethod(sb, method, allClasses, 1, controllerClass.name, new HashMap<>(), externalCalls, new HashSet<>());
+        processMethodHighLevel(sb, method, allClasses, 1, controllerName, externalCalls);
       }
     }
 
     sb.append("\"").append(controllerName).append("\" --> \"Client\" : HTTP Response (")
         .append(api.getReturnType()).append(")\n");
     sb.append("deactivate \"").append(controllerName).append("\"\n\n");
+  }
+
+  private void processMethodHighLevel(StringBuilder sb, MethodNode method, List<ClassNode> allClasses,
+      int depth, String callerName, List<ExternalCallInfo> externalCalls) {
+    if (depth > MAX_DEPTH || processedMethods.contains(method.name)) {
+      return;
+    }
+    processedMethods.add(method.name);
+
+    for (AbstractInsnNode insn : method.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        String calleeName = getSimpleClassName(methodInsn.owner);
+
+        if (isSignificantCall(calleeName)) {
+          String calleeMethod = methodInsn.name;
+          sb.append("\"").append(callerName).append("\" -> \"").append(calleeName).append("\" : ")
+              .append(calleeMethod).append("\n");
+          sb.append("activate \"").append(calleeName).append("\"\n");
+
+          // Add a note for service invocations
+          if (calleeName.endsWith("Service")) {
+            sb.append("note right of \"").append(calleeName).append("\"\n")
+                .append("  Service invocation\n")
+                .append("end note\n");
+          }
+
+          ClassNode calleeClass = findClassByName(allClasses, calleeName);
+          if (calleeClass != null) {
+            MethodNode calleeMethodNode = findMethodByName(calleeClass, calleeMethod);
+            if (calleeMethodNode != null) {
+              processMethodHighLevel(sb, calleeMethodNode, allClasses, depth + 1, calleeName, externalCalls);
+            }
+          }
+
+          sb.append("\"").append(calleeName).append("\" --> \"").append(callerName).append("\" : return\n");
+          sb.append("deactivate \"").append(calleeName).append("\"\n");
+        }
+      }
+    }
+
+    // Check for external calls
+    for (ExternalCallInfo externalCall : externalCalls) {
+      if (externalCall.getCallerMethod().equals(method.name)) {
+        sb.append("\"").append(callerName).append("\" -> \"External Service\" : ")
+            .append(externalCall.getHttpMethod()).append(" ").append(externalCall.getUrl()).append("\n");
+        sb.append("note right of \"External Service\"\n")
+            .append("  External API call\n")
+            .append("end note\n");
+        sb.append("\"External Service\" --> \"").append(callerName).append("\" : response\n");
+      }
+    }
+  }
+
+  private boolean isSignificantCall(String className) {
+    return className.endsWith("Controller") ||
+        className.endsWith("Service") ||
+        className.endsWith("Repository") ||
+        className.equals("External Service") ||
+        priorityPackages.stream().anyMatch(className::startsWith);
   }
 
   private void processMethod(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
@@ -150,7 +214,7 @@ public class SequenceDiagramGenerator {
 
     // Check for database interactions
     if (callerClass.toLowerCase().contains("repository")) {
-      processDatabaseInteraction(sb, getSimpleClassName(callerClass));
+      processDatabaseInteraction(sb, getSimpleClassName(callerClass), method.name);
     }
 
     callStack.remove(callerClass + "." + method.name);
@@ -959,12 +1023,31 @@ public class SequenceDiagramGenerator {
     return fullClassName.substring(lastSlashIndex + 1);
   }
 
-  private void processDatabaseInteraction(StringBuilder sb, String repositoryName) {
+  private void processDatabaseInteraction(StringBuilder sb, String repositoryName, String methodName) {
     String databaseName = getDatabaseName(repositoryName);
-    sb.append(repositoryName).append(" -> ").append(databaseName).append(" : execute query\n");
-    sb.append("activate ").append(databaseName).append("\n");
-    sb.append(databaseName).append(" --> ").append(repositoryName).append(" : return data\n");
-    sb.append("deactivate ").append(databaseName).append("\n");
+    String operation = getDatabaseOperation(methodName);
+
+    sb.append("\"").append(repositoryName).append("\" -> \"").append(databaseName).append("\" : ")
+        .append(operation).append("\n");
+    sb.append("activate \"").append(databaseName).append("\"\n");
+    sb.append("note right of \"").append(databaseName).append("\"\n")
+        .append("  ").append(operation).append(" operation\n")
+        .append("end note\n");
+    sb.append("\"").append(databaseName).append("\" --> \"").append(repositoryName).append("\" : return data\n");
+    sb.append("deactivate \"").append(databaseName).append("\"\n");
+  }
+
+  private String getDatabaseOperation(String methodName) {
+    if (methodName.startsWith("find") || methodName.startsWith("get")) {
+      return "READ";
+    } else if (methodName.startsWith("save") || methodName.startsWith("insert")) {
+      return "CREATE";
+    } else if (methodName.startsWith("update")) {
+      return "UPDATE";
+    } else if (methodName.startsWith("delete") || methodName.startsWith("remove")) {
+      return "DELETE";
+    }
+    return "EXECUTE";
   }
 
   private void processConstantInstruction(StringBuilder sb, LdcInsnNode ldcInsn, Map<Integer, String> localVars,

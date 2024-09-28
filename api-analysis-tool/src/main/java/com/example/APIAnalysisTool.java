@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -29,6 +30,7 @@ public class APIAnalysisTool {
   private final StateDiagramGenerator stateDiagramGenerator;
   private final ActivityDiagramGenerator activityDiagramGenerator;
   private final APIInventoryExtractor apiInventoryExtractor;
+  private final ServiceInventoryExtractor serviceInventoryExtractor;
   private final DesignComparator designComparator;
   private final CSVGenerator csvGenerator;
   private final DocumentationGenerator documentationGenerator;
@@ -39,6 +41,8 @@ public class APIAnalysisTool {
   private String latestComponentDiagram;
   private String latestStateDiagram;
   private String latestActivityDiagram;
+  private List<APIInfo> latestExposedAPIInventory;
+  private String latestUtilizedServiceInventory;
   private ComparisonResult latestComparisonResult;
   private List<APIInfo> latestAPIInventory;
   private List<ExternalCallInfo> latestExternalCalls;
@@ -53,6 +57,7 @@ public class APIAnalysisTool {
     this.stateDiagramGenerator = new StateDiagramGenerator();
     this.activityDiagramGenerator = new ActivityDiagramGenerator();
     this.apiInventoryExtractor = new APIInventoryExtractor();
+    this.serviceInventoryExtractor = new ServiceInventoryExtractor();
     this.designComparator = new DesignComparator();
     this.csvGenerator = new CSVGenerator();
     this.documentationGenerator = new DocumentationGenerator();
@@ -64,18 +69,26 @@ public class APIAnalysisTool {
     logger.info("Starting project analysis for: {}", projectPath);
     List<ClassNode> allClasses = parseJavaClasses(projectPath);
 
-    latestSequenceDiagram = sequenceDiagramGenerator.generateSequenceDiagram(allClasses);
-    latestClassDiagram = classDiagramGenerator.generateClassDiagram(allClasses);
-    latestComponentDiagram = componentDiagramGenerator.generateComponentDiagram(allClasses);
+    SourceCodeAnalyzer sourceCodeAnalyzer = new SourceCodeAnalyzer();
+    Map<String, ClassInfo> sourceCodeInfo = sourceCodeAnalyzer.analyzeSourceCode(projectPath);
+
+    DependencyAnalyzer dependencyAnalyzer = new DependencyAnalyzer();
+    List<ExternalCallInfo> externalCalls = dependencyAnalyzer.analyzeExternalCalls(allClasses);
+
+    latestSequenceDiagram = sequenceDiagramGenerator.generateSequenceDiagram(allClasses, sourceCodeInfo);
+    latestClassDiagram = classDiagramGenerator.generateClassDiagram(allClasses, sourceCodeInfo);
+    latestComponentDiagram = componentDiagramGenerator.generateComponentDiagram(allClasses, sourceCodeInfo);
     latestStateDiagram = stateDiagramGenerator.generateStateDiagram(allClasses);
     latestActivityDiagram = activityDiagramGenerator.generateActivityDiagram(allClasses);
 
-    latestAPIInventory = apiInventoryExtractor.extractAPIs(allClasses);
-    latestExternalCalls = externalCallScanner.findExternalCalls(allClasses);
+    latestExposedAPIInventory = apiInventoryExtractor.extractExposedAPIs(allClasses);
+    latestUtilizedServiceInventory = serviceInventoryExtractor.extractUtilizedServices(allClasses);
+    latestExternalCalls = externalCalls;
 
     String existingDiagram = readExistingDesign(existingDesignPath);
     latestComparisonResult = designComparator.compare(latestClassDiagram, existingDiagram, projectName);
 
+    latestAPIInventory = latestExposedAPIInventory; // Set latestAPIInventory to latestExposedAPIInventory
     latestCsvPath = generateCSV(projectName);
     latestDocumentationPath = generateDocumentation(projectName);
     latestHtmlDiffPath = generateHtmlDiff(projectName);
@@ -84,16 +97,17 @@ public class APIAnalysisTool {
 
     logger.info("Project analysis completed successfully");
     return new AnalysisResult(latestSequenceDiagram, latestClassDiagram, latestComponentDiagram,
-        latestStateDiagram, latestActivityDiagram, latestComparisonResult, latestAPIInventory,
-        latestExternalCalls, latestCsvPath, latestDocumentationPath, latestHtmlDiffPath);
+        latestStateDiagram, latestActivityDiagram, latestComparisonResult, latestExposedAPIInventory,
+        latestUtilizedServiceInventory, latestExternalCalls, latestCsvPath, latestDocumentationPath,
+        latestHtmlDiffPath);
   }
 
   private void saveDiagrams(String projectName) {
     saveDiagramToFile(latestSequenceDiagram, "sequence_" + projectName);
-//    saveDiagramToFile(latestClassDiagram, "class_" + projectName);
-//    saveDiagramToFile(latestComponentDiagram, "component_" + projectName);
-//    saveDiagramToFile(latestStateDiagram, "state_" + projectName);
-//    saveDiagramToFile(latestActivityDiagram, "activity_" + projectName);
+    // saveDiagramToFile(latestClassDiagram, "class_" + projectName);
+    // saveDiagramToFile(latestComponentDiagram, "component_" + projectName);
+    // saveDiagramToFile(latestStateDiagram, "state_" + projectName);
+    // saveDiagramToFile(latestActivityDiagram, "activity_" + projectName);
   }
 
   public Map<String, AnalysisResult> analyzeProjects(List<MultipartFile> projectFiles) throws IOException {
@@ -139,7 +153,7 @@ public class APIAnalysisTool {
         .toList();
 
     return switch (diagramType) {
-       case "sequence" -> sequenceDiagramGenerator.combineDiagrams(diagrams);
+      case "sequence" -> sequenceDiagramGenerator.combineDiagrams(diagrams);
       case "class" -> classDiagramGenerator.combineDiagrams(diagrams);
       case "component" -> componentDiagramGenerator.combineDiagrams(diagrams);
       case "state" -> stateDiagramGenerator.combineDiagrams(diagrams);
@@ -187,21 +201,71 @@ public class APIAnalysisTool {
 
   private List<ClassNode> parseJavaClasses(String projectPath) throws IOException {
     List<ClassNode> allClasses = new ArrayList<>();
-    try (JarFile jarFile = new JarFile(projectPath)) {
-      Enumeration<JarEntry> entries = jarFile.entries();
-      while (entries.hasMoreElements()) {
-        JarEntry entry = entries.nextElement();
-        if (entry.getName().endsWith(".class")) {
-          try (InputStream is = jarFile.getInputStream(entry)) {
-            ClassReader reader = new ClassReader(is);
-            ClassNode classNode = new ClassNode();
-            reader.accept(classNode, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-            allClasses.add(classNode);
-          }
+    Path path = Paths.get(projectPath);
+
+    if (Files.isDirectory(path)) {
+      parseDirectory(path, allClasses);
+    } else if (projectPath.endsWith(".jar")) {
+      parseJarFile(projectPath, allClasses);
+    } else if (projectPath.endsWith(".zip")) {
+      Path tempDir = Files.createTempDirectory("unzipped_project");
+      unzipFile(path, tempDir);
+      parseDirectory(tempDir, allClasses);
+      Files.walkFileTree(tempDir, new SimpleFileVisitor<Path>() {
+        @Override
+        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+          Files.delete(file);
+          return FileVisitResult.CONTINUE;
         }
-      }
+
+        @Override
+        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+          Files.delete(dir);
+          return FileVisitResult.CONTINUE;
+        }
+      });
+    } else {
+      logger.error("Unsupported file type: {}", projectPath);
     }
+
     return allClasses;
+  }
+
+  private void parseDirectory(Path directory, List<ClassNode> allClasses) throws IOException {
+    try (Stream<Path> walk = Files.walk(directory)) {
+      walk.filter(Files::isRegularFile)
+          .filter(p -> p.toString().endsWith(".class"))
+          .forEach(classFile -> {
+            try {
+              byte[] classBytes = Files.readAllBytes(classFile);
+              ClassNode classNode = parseClassFile(classBytes);
+              if (classNode != null) {
+                allClasses.add(classNode);
+              }
+            } catch (IOException e) {
+              logger.error("Error reading class file: " + e.getMessage(), e);
+            }
+          });
+    }
+  }
+
+  private void unzipFile(Path zipFile, Path destDir) throws IOException {
+    try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile.toFile()))) {
+      ZipEntry zipEntry = zis.getNextEntry();
+      while (zipEntry != null) {
+        Path newPath = destDir.resolve(zipEntry.getName());
+        if (zipEntry.isDirectory()) {
+          Files.createDirectories(newPath);
+        } else {
+          if (!Files.exists(newPath.getParent())) {
+            Files.createDirectories(newPath.getParent());
+          }
+          Files.copy(zis, newPath);
+        }
+        zipEntry = zis.getNextEntry();
+      }
+      zis.closeEntry();
+    }
   }
 
   private ClassNode parseClassFile(byte[] classBytes) {
@@ -280,5 +344,9 @@ public class APIAnalysisTool {
 
   public String getLatestHtmlDiffPath() {
     return latestHtmlDiffPath;
+  }
+
+  public List<APIInfo> getLatestExposedAPIInventory() {
+    return latestExposedAPIInventory;
   }
 }

@@ -167,3 +167,124 @@
 
 ## External API Calls
 
+### void
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** org/springframework/boot/loader/PropertiesLauncher.getURLResource
+
+### void
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+  - String
+- **Response Type:** org/springframework/boot/loader/PropertiesLauncher.exists
+
+### int
+
+- **URL:** Unknown URL
+- **HTTP Method:** GET
+- **Parameters:**
+- **Response Type:** org/springframework/boot/loader/PropertiesLauncher.exists
+
+### void
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** org/springframework/boot/loader/PropertiesLauncher.exists
+
+### void
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** org/springframework/boot/loader/PropertiesLauncher.exists
+
+### void
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** org/springframework/boot/loader/PropertiesLauncher.exists
+
+### void
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** org/springframework/boot/loader/PropertiesLauncher.exists
+
+### WebClient$Builder
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** com/example/BookServiceApplication.webClientBuilder
+
+### WebClient$Builder
+
+- **URL:** http://localhost:8081
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+  - String
+- **Response Type:** com/example/service/AuthorServiceClient.<init>
+
+### WebClient
+
+- **URL:** http://localhost:8081
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** com/example/service/AuthorServiceClient.<init>
+
+### WebClient$RequestHeadersUriSpec
+
+- **URL:** Unknown URL
+- **HTTP Method:** GET
+- **Parameters:**
+- **Response Type:** com/example/service/AuthorServiceClient.getAuthor
+
+### WebClient$RequestHeadersSpec
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+  - String
+  - Object[]
+- **Response Type:** com/example/service/AuthorServiceClient.getAuthor
+
+### WebClient$ResponseSpec
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+- **Response Type:** com/example/service/AuthorServiceClient.getAuthor
+
+### WebClient$ResponseSpec
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+  - Predicate
+  - Function
+- **Response Type:** com/example/service/AuthorServiceClient.getAuthor
+
+### WebClient$ResponseSpec
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+  - Predicate
+  - Function
+- **Response Type:** com/example/service/AuthorServiceClient.getAuthor
+
+### Mono
+
+- **URL:** Unknown URL
+- **HTTP Method:** Unknown HTTP Method
+- **Parameters:**
+  - Class
+- **Response Type:** com/example/service/AuthorServiceClient.getAuthor
+

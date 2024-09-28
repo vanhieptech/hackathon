@@ -19,3 +19,19 @@ Internal,N/A,N/A,com/example/service/AuthorServiceClient.<init>,void,org.springf
 Internal,N/A,N/A,com/example/service/AuthorServiceClient.getAuthor,reactor.core.publisher.Mono,java.lang.Long,N/A
 Internal,N/A,N/A,com/example/service/AuthorServiceClient.lambda$getAuthor$1,reactor.core.publisher.Mono,org.springframework.web.reactive.function.client.ClientResponse,N/A
 Internal,N/A,N/A,com/example/service/AuthorServiceClient.lambda$getAuthor$0,reactor.core.publisher.Mono,java.lang.Long;org.springframework.web.reactive.function.client.ClientResponse,N/A
+External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.getURLResource,,Unknown URL
+External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,String,Unknown URL
+External,GET,N/A,int,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
+External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
+External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
+External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
+External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
+External,Unknown HTTP Method,N/A,WebClient$Builder,com/example/BookServiceApplication.webClientBuilder,,Unknown URL
+External,Unknown HTTP Method,N/A,WebClient$Builder,com/example/service/AuthorServiceClient.<init>,String,http://localhost:8081
+External,Unknown HTTP Method,N/A,WebClient,com/example/service/AuthorServiceClient.<init>,,http://localhost:8081
+External,GET,N/A,WebClient$RequestHeadersUriSpec,com/example/service/AuthorServiceClient.getAuthor,,Unknown URL
+External,Unknown HTTP Method,N/A,WebClient$RequestHeadersSpec,com/example/service/AuthorServiceClient.getAuthor,String;Object[],Unknown URL
+External,Unknown HTTP Method,N/A,WebClient$ResponseSpec,com/example/service/AuthorServiceClient.getAuthor,,Unknown URL
+External,Unknown HTTP Method,N/A,WebClient$ResponseSpec,com/example/service/AuthorServiceClient.getAuthor,Predicate;Function,Unknown URL
+External,Unknown HTTP Method,N/A,WebClient$ResponseSpec,com/example/service/AuthorServiceClient.getAuthor,Predicate;Function,Unknown URL
+External,Unknown HTTP Method,N/A,Mono,com/example/service/AuthorServiceClient.getAuthor,Class,Unknown URL

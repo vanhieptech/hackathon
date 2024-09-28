@@ -11,7 +11,7 @@ import java.util.LinkedHashSet;
 
 public class ComponentDiagramGenerator {
 
-  public String generateComponentDiagram(List<ClassNode> allClasses) {
+  public String generateComponentDiagram(List<ClassNode> allClasses, Map<String, ClassInfo> sourceCodeInfo) {
     StringBuilder sb = new StringBuilder();
     sb.append("@startuml\n");
 

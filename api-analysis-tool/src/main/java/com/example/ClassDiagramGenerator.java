@@ -7,10 +7,11 @@ import org.objectweb.asm.tree.MethodNode;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 
 public class ClassDiagramGenerator {
 
-  public String generateClassDiagram(List<ClassNode> allClasses) {
+  public String generateClassDiagram(List<ClassNode> allClasses, Map<String, ClassInfo> sourceCodeInfo) {
     StringBuilder sb = new StringBuilder();
     sb.append("@startuml\n");
 
