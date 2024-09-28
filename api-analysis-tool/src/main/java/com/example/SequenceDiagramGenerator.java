@@ -161,13 +161,6 @@ public class SequenceDiagramGenerator {
       String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls, Set<String> callStack) {
 
     switch (insn.getOpcode()) {
-      case Opcodes.ILOAD:
-      case Opcodes.LLOAD:
-      case Opcodes.FLOAD:
-      case Opcodes.DLOAD:
-      case Opcodes.ALOAD:
-        processVariableLoad(sb, (VarInsnNode) insn, method, callerClass, localVars);
-        break;
       case Opcodes.ISTORE:
       case Opcodes.LSTORE:
       case Opcodes.FSTORE:
@@ -220,19 +213,6 @@ public class SequenceDiagramGenerator {
         // them
         logger.debug("Unhandled instruction: {} in {}.{}", insn.getOpcode(), callerClass, method.name);
     }
-  }
-
-  private void processVariableLoad(StringBuilder sb, VarInsnNode varInsn, MethodNode method, String callerClass,
-      Map<Integer, String> localVars) {
-    String varName = getVariableName(varInsn.var, method);
-    String varType = getVariableType(varInsn.var, method);
-    String fullVarInfo = varName + ":" + getDetailedType(varType);
-    localVars.put(varInsn.var, fullVarInfo);
-
-    String callerName = getInterfaceName(callerClass);
-    logger.debug("Load variable: {} in method: {}.{}", fullVarInfo, callerClass, method.name);
-
-    sb.append("note over ").append(callerName).append(" : Load ").append(fullVarInfo).append("\n");
   }
 
   private void processVariableStore(StringBuilder sb, VarInsnNode varInsn, MethodNode method, String callerClass,
@@ -382,7 +362,7 @@ public class SequenceDiagramGenerator {
     for (int i = 0; i < argumentTypes.length; i++) {
       if (i > 0)
         methodCallSb.append(", ");
-      String paramType = getDetailedType(argumentTypes[i].getDescriptor());
+      String paramType = getSimplifiedTypeName(argumentTypes[i].getClassName());
       String paramValue = i < actualParams.size() ? actualParams.get(i) : "?";
       parameterTypes[i] = paramType;
       parameterNames[i] = paramValue;
@@ -392,7 +372,7 @@ public class SequenceDiagramGenerator {
 
     // Get return type
     Type returnType = Type.getReturnType(methodInsn.desc);
-    String returnTypeName = getDetailedType(returnType.getDescriptor());
+    String returnTypeName = getSimplifiedTypeName(returnType.getClassName());
 
     logger.debug("Method call: {}.{} -> {}.{}", callerClass, methodInsn.name, methodInsn.owner, methodCallSb);
     logger.debug("Return type: {}", returnTypeName);
@@ -498,11 +478,12 @@ public class SequenceDiagramGenerator {
       return "void";
     }
     if (fullTypeName.contains("<")) {
-      String baseType = fullTypeName.substring(0, fullTypeName.indexOf('<'));
-      String paramType = fullTypeName.substring(fullTypeName.indexOf('<') + 1, fullTypeName.lastIndexOf('>'));
-      return getSimpleClassName(baseType) + "<" + getSimpleClassName(paramType) + ">";
+      String baseType = fullTypeName.substring(fullTypeName.lastIndexOf('.') + 1, fullTypeName.indexOf('<'));
+      String paramType = getSimplifiedTypeName(
+          fullTypeName.substring(fullTypeName.indexOf('<') + 1, fullTypeName.lastIndexOf('>')));
+      return baseType + "<" + paramType + ">";
     }
-    return getSimpleClassName(fullTypeName);
+    return fullTypeName.substring(fullTypeName.lastIndexOf('.') + 1);
   }
 
   private void processConditionalFlow(StringBuilder sb, JumpInsnNode jumpInsn, MethodNode method,

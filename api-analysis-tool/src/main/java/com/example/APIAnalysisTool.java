@@ -90,10 +90,10 @@ public class APIAnalysisTool {
 
   private void saveDiagrams(String projectName) {
     saveDiagramToFile(latestSequenceDiagram, "sequence_" + projectName);
-    saveDiagramToFile(latestClassDiagram, "class_" + projectName);
-    saveDiagramToFile(latestComponentDiagram, "component_" + projectName);
-    saveDiagramToFile(latestStateDiagram, "state_" + projectName);
-    saveDiagramToFile(latestActivityDiagram, "activity_" + projectName);
+//    saveDiagramToFile(latestClassDiagram, "class_" + projectName);
+//    saveDiagramToFile(latestComponentDiagram, "component_" + projectName);
+//    saveDiagramToFile(latestStateDiagram, "state_" + projectName);
+//    saveDiagramToFile(latestActivityDiagram, "activity_" + projectName);
   }
 
   public Map<String, AnalysisResult> analyzeProjects(List<MultipartFile> projectFiles) throws IOException {
@@ -139,7 +139,7 @@ public class APIAnalysisTool {
         .toList();
 
     return switch (diagramType) {
-      case "sequence" -> sequenceDiagramGenerator.combineDiagrams(diagrams);
+       case "sequence" -> sequenceDiagramGenerator.combineDiagrams(diagrams);
       case "class" -> classDiagramGenerator.combineDiagrams(diagrams);
       case "component" -> componentDiagramGenerator.combineDiagrams(diagrams);
       case "state" -> stateDiagramGenerator.combineDiagrams(diagrams);
