@@ -98,6 +98,7 @@ public class SequenceDiagramGenerator {
       walk.filter(Files::isRegularFile)
           .filter(p -> p.toString().endsWith(".class"))
           .forEach(classFile -> {
+            logger.info("classFile: {}", classFile);
             try {
               byte[] classBytes = Files.readAllBytes(classFile);
               ClassReader classReader = new ClassReader(classBytes);
@@ -143,8 +144,10 @@ public class SequenceDiagramGenerator {
 
   private void generateSequenceForAPI(StringBuilder sb, APIInfo api, List<ClassNode> allClasses,
       List<ExternalCallInfo> externalCalls) {
+    logger.info("Generating sequence for API: {}", api.getMethodName());
+    logger.info("HTTP Method: {}, Path: {}", api.getHttpMethod(), api.getPath());
     sb.append("== ").append(api.getMethodName()).append(" ==\n");
-    String controllerName = getInterfaceName(getSimpleClassName(getClassName(api.getMethodName())));
+    String controllerName = getSimpleClassName(getInterfaceName(getClassName(api.getMethodName())));
     sb.append("\"Client\" -> \"").append(controllerName).append("\" : ")
         .append(api.getHttpMethod()).append(" ").append(api.getPath()).append("\n");
     sb.append("activate \"").append(controllerName).append("\"\n");
@@ -172,28 +175,21 @@ public class SequenceDiagramGenerator {
       return;
     }
     processedMethods.add(method.name);
-
-    String interfaceCallerName = getInterfaceName(callerName);
-
-    List<String> injectedDependencies = findInjectedDependencies(method);
-    for (String dependency : injectedDependencies) {
-      sb.append("note over ").append(interfaceCallerName).append(" : Inject ")
-          .append(getInterfaceName(dependency)).append("\n");
-    }
+    logger.info("Processing method: {} at depth {}", method.name, depth);
+    logger.info("Caller: {}", callerName);
+    String interfaceCallerName = getInterfaceName(getSimpleClassName(callerName));
 
     for (AbstractInsnNode insn : method.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
         String calleeName = getSimpleClassName(methodInsn.owner);
-        String interfaceCalleeName = getInterfaceName(calleeName);
+        String interfaceCalleeName = getInterfaceName(getSimpleClassName(calleeName));
 
         if (isSignificantCall(interfaceCalleeName)) {
           String calleeMethod = methodInsn.name;
           sb.append("\"").append(interfaceCallerName).append("\" -> \"").append(interfaceCalleeName).append("\" : ")
               .append(calleeMethod).append("\n");
           sb.append("activate \"").append(interfaceCalleeName).append("\"\n");
-
-          addLayerLabel(sb, interfaceCalleeName);
 
           ClassNode calleeClass = findImplementationClass(allClasses, methodInsn.owner);
           if (calleeClass != null) {
@@ -215,62 +211,8 @@ public class SequenceDiagramGenerator {
   }
 
   private String getInterfaceName(String className) {
-    if (className == null) {
-      return "UnknownClass";
-    }
-    String interfaceName = implToInterfaceMap.get(className);
-    return interfaceName != null ? getSimpleClassName(interfaceName) : getSimpleClassName(className);
-  }
-
-  private void addLayerLabel(StringBuilder sb, String className) {
-    if (className.endsWith("Controller")) {
-      sb.append("note over ").append(className).append(" : Controller Layer\n");
-    } else if (className.endsWith("Service")) {
-      sb.append("note over ").append(className).append(" : Service Layer\n");
-    } else if (className.endsWith("Repository")) {
-      sb.append("note over ").append(className).append(" : Repository Layer\n");
-    }
-  }
-
-  private List<String> findInjectedDependencies(MethodNode method) {
-    List<String> injectedDependencies = new ArrayList<>();
-
-    // Check for constructor injections
-    if (method.name.equals("<init>")) {
-      Type[] argumentTypes = Type.getArgumentTypes(method.desc);
-      for (Type argType : argumentTypes) {
-        String typeName = argType.getClassName();
-        if (isInjectedType(typeName)) {
-          injectedDependencies.add(typeName);
-        }
-      }
-    }
-
-    // Check for @Autowired field injections
-    if (method.visibleAnnotations != null) {
-      for (AnnotationNode annotation : method.visibleAnnotations) {
-        if (annotation.desc.contains("Autowired")) {
-          for (AbstractInsnNode insn : method.instructions) {
-            if (insn instanceof FieldInsnNode) {
-              FieldInsnNode fieldInsn = (FieldInsnNode) insn;
-              String fieldType = Type.getType(fieldInsn.desc).getClassName();
-              if (isInjectedType(fieldType)) {
-                injectedDependencies.add(fieldType);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return injectedDependencies;
-  }
-
-  private boolean isInjectedType(String typeName) {
-    return typeName.endsWith("Service") ||
-        typeName.endsWith("Repository") ||
-        typeName.contains("RestTemplate") ||
-        typeName.contains("WebClient");
+    String simpleName = getSimpleClassName(className);
+    return implToInterfaceMap.getOrDefault(simpleName, simpleName);
   }
 
   private void processExternalCalls(StringBuilder sb, MethodNode method, String callerName,
@@ -346,10 +288,11 @@ public class SequenceDiagramGenerator {
     for (AbstractInsnNode insn : method.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
-        String owner = methodInsn.owner.replace('/', '.');
+        String owner = getSimpleClassName(methodInsn.owner);
         if (isRepositoryMethod(owner, methodInsn.name)) {
           String operation = getDatabaseOperation(methodInsn.name);
           String databaseName = getDatabaseName(owner);
+          logger.info("Processing database interaction: {} on {}", operation, databaseName);
 
           sb.append("group ").append(operation).append(" Operation\n");
           sb.append("\"").append(callerName).append("\" -> \"").append(owner).append("\" : ")
@@ -493,7 +436,7 @@ public class SequenceDiagramGenerator {
       default:
         // For other instructions, we might want to add a generic note or simply ignore
         // them
-        logger.debug("Unhandled instruction: {} in {}.{}", insn.getOpcode(), callerClass, method.name);
+        logger.info("Unhandled instruction: {} in {}.{}", insn.getOpcode(), callerClass, method.name);
     }
   }
 
@@ -504,16 +447,16 @@ public class SequenceDiagramGenerator {
     String fullVarInfo = varName + ":" + getDetailedType(varType);
     localVars.put(varInsn.var, fullVarInfo);
 
-    String callerName = getInterfaceName(callerClass);
-    logger.debug("Store variable: {} in method: {}.{}", fullVarInfo, callerClass, method.name);
+    String callerName = getInterfaceName(getSimpleClassName(callerClass));
+    logger.info("Store variable: {} in method: {}.{}", fullVarInfo, callerClass, method.name);
 
     sb.append("note over ").append(callerName).append(" : Store ").append(fullVarInfo).append("\n");
   }
 
   private void processObjectCreation(StringBuilder sb, TypeInsnNode typeInsn, String callerClass) {
-    String callerName = getInterfaceName(callerClass);
+    String callerName = getInterfaceName(getSimpleClassName(callerClass));
     String objectType = getDetailedType(typeInsn.desc);
-    logger.debug("Object creation: {} in class: {}", objectType, callerClass);
+    logger.info("Object creation: {} in class: {}", objectType, callerClass);
 
     sb.append("note over ").append(callerName).append(" : Create new ").append(objectType).append("\n");
   }
@@ -522,7 +465,7 @@ public class SequenceDiagramGenerator {
     String callerName = getInterfaceName(callerClass);
     String fieldType = getDetailedType(fieldInsn.desc);
     String operation = isGet ? "Get" : "Set";
-    logger.debug("{} field: {}.{} : {} in class: {}", operation, fieldInsn.owner, fieldInsn.name, fieldType,
+    logger.info("{} field: {}.{} : {} in class: {}", operation, fieldInsn.owner, fieldInsn.name, fieldType,
         callerClass);
 
     sb.append("note over ").append(callerName).append(" : ").append(operation).append(" ")
@@ -532,7 +475,7 @@ public class SequenceDiagramGenerator {
 
   private void processExceptionThrow(StringBuilder sb, String callerClass) {
     String callerName = getInterfaceName(callerClass);
-    logger.debug("Exception thrown in class: {}", callerClass);
+    logger.info("Exception thrown in class: {}", callerClass);
 
     sb.append("note over ").append(callerName).append(" : Throw exception\n");
   }
@@ -656,8 +599,8 @@ public class SequenceDiagramGenerator {
     Type returnType = Type.getReturnType(methodInsn.desc);
     String returnTypeName = getSimplifiedTypeName(returnType.getClassName());
 
-    logger.debug("Method call: {}.{} -> {}.{}", callerClass, methodInsn.name, methodInsn.owner, methodCallSb);
-    logger.debug("Return type: {}", returnTypeName);
+    logger.info("Method call: {}.{} -> {}.{}", callerClass, methodInsn.name, methodInsn.owner, methodCallSb);
+    logger.info("Return type: {}", returnTypeName);
 
     sb.append("\"").append(callerName).append("\" -> \"").append(targetName).append("\" : ")
         .append(methodCallSb).append("\n");
@@ -667,7 +610,7 @@ public class SequenceDiagramGenerator {
     if (targetClass != null) {
       MethodNode targetMethod = findMethodByName(targetClass, methodInsn.name);
       if (targetMethod != null) {
-        logger.debug("Processing method body: {}.{}", targetClass.name, targetMethod.name);
+        logger.info("Processing method body: {}.{}", targetClass.name, targetMethod.name);
         processMethod(sb, targetMethod, allClasses, depth + 1, targetClass.name, new HashMap<>(localVars),
             externalCalls, new HashSet<>(callStack));
       } else {
@@ -719,7 +662,7 @@ public class SequenceDiagramGenerator {
     String callerName = getInterfaceName(callerClass);
     String operation = varInsn.getOpcode() == Opcodes.ILOAD || varInsn.getOpcode() == Opcodes.ALOAD ? "Load" : "Store";
 
-    logger.debug("{} variable: {} in method: {}.{}", operation, fullVarInfo, callerClass, method.name);
+    logger.info("{} variable: {} in method: {}.{}", operation, fullVarInfo, callerClass, method.name);
 
     sb.append("note over ").append(callerName).append(" : ").append(operation).append(" ").append(fullVarInfo)
         .append("\n");
@@ -883,13 +826,12 @@ public class SequenceDiagramGenerator {
 
   private void mapImplementationsToInterfaces(List<ClassNode> allClasses) {
     for (ClassNode classNode : allClasses) {
-      if ((classNode.access & Opcodes.ACC_INTERFACE) == 0) {
+      if (!isInterface(classNode)) {
         for (String interfaceName : classNode.interfaces) {
           String simpleInterfaceName = getSimpleClassName(interfaceName);
           String simpleClassName = getSimpleClassName(classNode.name);
           implToInterfaceMap.put(simpleClassName, simpleInterfaceName);
-          implToInterfaceMap.put(simpleInterfaceName, simpleClassName);
-          logger.debug("Mapped implementation {} to interface {}", simpleClassName, simpleInterfaceName);
+          logger.info("Mapped implementation {} to interface {}", simpleClassName, simpleInterfaceName);
         }
       }
     }
@@ -906,31 +848,21 @@ public class SequenceDiagramGenerator {
 
   private void appendParticipants(StringBuilder sb, List<ClassNode> allClasses, List<ExternalCallInfo> externalCalls) {
     Set<String> participants = new LinkedHashSet<>();
-    Map<String, String> implToInterfaceMap = new HashMap<>();
-
     participants.add("Client");
 
     for (ClassNode classNode : allClasses) {
-      String simpleName = getSimpleClassName(classNode.name);
-      if (isController(classNode) || isService(classNode) || isRepository(classNode)) {
-        if ((classNode.access & Opcodes.ACC_INTERFACE) != 0) {
-          participants.add(simpleName);
-        } else {
-          String interfaceName = findMatchingInterface(classNode, allClasses);
-          if (interfaceName != null) {
-            implToInterfaceMap.put(simpleName, interfaceName);
-            participants.add(interfaceName);
-          } else {
-            participants.add(simpleName);
-          }
-        }
+      if (isInterface(classNode) && (isService(classNode) || isRepository(classNode))) {
+        participants.add(getSimpleClassName(classNode.name));
       }
     }
 
+    // Add external services
     for (ExternalCallInfo externalCall : externalCalls) {
-      participants.add(getExternalServiceName(externalCall.getUrl()));
+      participants.add(getSimpleClassName(getExternalServiceName(externalCall.getUrl())));
     }
-
+    logger.info("Appending participants to the diagram");
+    logger.info("Found {} participants", participants.size());
+    // Append participants to the diagram
     for (String participant : participants) {
       if (participant.equals("Client")) {
         sb.append("actor ").append(participant).append("\n");
@@ -962,16 +894,6 @@ public class SequenceDiagramGenerator {
             classNode.visibleAnnotations.stream().anyMatch(a -> a.desc.contains("Repository")));
   }
 
-  private String findMatchingInterface(ClassNode classNode, List<ClassNode> allClasses) {
-    for (String interfaceName : classNode.interfaces) {
-      String simpleInterfaceName = getSimpleClassName(interfaceName);
-      if (allClasses.stream().anyMatch(c -> c.name.equals(interfaceName) && (c.access & Opcodes.ACC_INTERFACE) != 0)) {
-        return simpleInterfaceName;
-      }
-    }
-    return null;
-  }
-
   private String getExternalServiceName(String url) {
     try {
       java.net.URL parsedUrl = new java.net.URL(url);
@@ -982,7 +904,7 @@ public class SequenceDiagramGenerator {
   }
 
   private String getDatabaseName(String repositoryName) {
-    return repositoryName.replace("Repository", "DB");
+    return getSimpleClassName(repositoryName.replace("Repository", "DB"));
   }
 
   private String extractBaseUrl(ClassNode classNode) {
@@ -1001,69 +923,16 @@ public class SequenceDiagramGenerator {
     return null;
   }
 
-  private String extractHttpMethod(ClassNode classNode, String methodName) {
-    MethodNode method = findMethodByName(classNode, methodName);
-    if (method != null) {
-      for (AbstractInsnNode insn : method.instructions) {
-        if (insn instanceof MethodInsnNode) {
-          MethodInsnNode methodInsn = (MethodInsnNode) insn;
-          if (methodInsn.name.equals("get") || methodInsn.name.equals("post") ||
-              methodInsn.name.equals("put") || methodInsn.name.equals("delete")) {
-            return methodInsn.name.toUpperCase();
-          }
-        }
-      }
-    }
-    return "UNKNOWN";
-  }
-
-  private String extractPath(ClassNode classNode, String methodName) {
-    MethodNode method = findMethodByName(classNode, methodName);
-    if (method != null) {
-      for (AbstractInsnNode insn : method.instructions) {
-        if (insn instanceof LdcInsnNode) {
-          LdcInsnNode ldcInsn = (LdcInsnNode) insn;
-          if (ldcInsn.cst instanceof String && ((String) ldcInsn.cst).startsWith("/")) {
-            return (String) ldcInsn.cst;
-          }
-        }
-      }
-    }
-    return "/unknown-path";
-  }
-
-  private String extractResponseModel(ClassNode classNode, String methodName) {
-    MethodNode method = findMethodByName(classNode, methodName);
-    if (method != null) {
-      String returnType = Type.getReturnType(method.desc).getClassName();
-      if (returnType.contains("Mono")) {
-        // Extract the type parameter of Mono
-        return extractTypeParameter(returnType);
-      }
-      return returnType;
-    }
-    return "Unknown";
-  }
-
-  private String extractTypeParameter(String type) {
-    int start = type.indexOf('<');
-    int end = type.lastIndexOf('>');
-    if (start != -1 && end != -1) {
-      return type.substring(start + 1, end);
-    }
-    return type;
-  }
-
   private ClassNode findImplementationClass(List<ClassNode> allClasses, String interfaceName) {
-    logger.debug("Searching for implementation of interface/class: {}", interfaceName);
+    logger.info("Searching for implementation of interface/class: {}", interfaceName);
 
     // Check cache first
     if (implementationCache.containsKey(interfaceName)) {
       ClassNode cachedResult = implementationCache.get(interfaceName);
       if (cachedResult != null) {
-        logger.debug("Found cached implementation for {}: {}", interfaceName, cachedResult.name);
+        logger.info("Found cached implementation for {}: {}", interfaceName, cachedResult.name);
       } else {
-        logger.debug("Cached null implementation for {}", interfaceName);
+        logger.info("Cached null implementation for {}", interfaceName);
       }
       return cachedResult;
     }
@@ -1171,12 +1040,12 @@ public class SequenceDiagramGenerator {
 
     for (String implementedInterface : classNode.interfaces) {
       if (implementedInterface.equals(targetInterface)) {
-        logger.debug("Found indirect implementation: {} implements {}", classNode.name, targetInterface);
+        logger.info("Found indirect implementation: {} implements {}", classNode.name, targetInterface);
         return true;
       }
       ClassNode interfaceNode = findClassByName(allClasses, implementedInterface);
       if (interfaceNode != null && isIndirectImplementation(interfaceNode, targetInterface, allClasses, visited)) {
-        logger.debug("Found indirect implementation: {} extends {} which implements {}",
+        logger.info("Found indirect implementation: {} extends {} which implements {}",
             classNode.name, implementedInterface, targetInterface);
         return true;
       }
@@ -1188,7 +1057,7 @@ public class SequenceDiagramGenerator {
     logger.trace("Checking if {} is subclass of {}", classNode.name, superClassName);
     while (classNode != null) {
       if (classNode.superName.equals(superClassName)) {
-        logger.debug("Found subclass relationship: {} extends {}", classNode.name, superClassName);
+        logger.info("Found subclass relationship: {} extends {}", classNode.name, superClassName);
         return true;
       }
       classNode = findClassByName(allClasses, classNode.superName);
@@ -1228,6 +1097,14 @@ public class SequenceDiagramGenerator {
 
   private String getSimpleClassName(String fullClassName) {
     int lastSlashIndex = fullClassName.lastIndexOf('/');
+    if (lastSlashIndex == -1) {
+      return getSimpleDotClassName(fullClassName);
+    }
+    return fullClassName.substring(lastSlashIndex + 1);
+  }
+
+  private String getSimpleDotClassName(String fullClassName) {
+    int lastSlashIndex = fullClassName.lastIndexOf('.');
     if (lastSlashIndex == -1) {
       return fullClassName;
     }
