@@ -135,22 +135,7 @@ public class SequenceDiagramGenerator {
       sb.append("group Asynchronous Operation\n");
 
     for (AbstractInsnNode insn : method.instructions) {
-      if (insn instanceof VarInsnNode) {
-        processVariableInstruction(sb, (VarInsnNode) insn, localVars, callerClass, method);
-      } else if (insn instanceof MethodInsnNode) {
-        processMethodCall(sb, (MethodInsnNode) insn, allClasses, depth, callerClass, localVars, externalCalls,
-            callStack);
-      } else if (insn instanceof JumpInsnNode) {
-        processConditionalFlow(sb, (JumpInsnNode) insn, method, allClasses, depth, callerClass, localVars,
-            externalCalls, callStack);
-      } else if (insn instanceof LdcInsnNode) {
-        processConstantInstruction(sb, (LdcInsnNode) insn, localVars, callerClass);
-      } else if (insn instanceof InvokeDynamicInsnNode) {
-        processLambdaOrMethodReference(sb, (InvokeDynamicInsnNode) insn, allClasses, depth, callerClass, externalCalls,
-            callStack);
-      } else if (insn instanceof LabelNode) {
-        processLabelNode(sb, (LabelNode) insn, method);
-      }
+      processInstruction(sb, insn, method, allClasses, depth, callerClass, localVars, externalCalls, callStack);
     }
 
     for (TryCatchBlockNode tryCatchBlock : method.tryCatchBlocks) {
@@ -171,15 +156,64 @@ public class SequenceDiagramGenerator {
     callStack.remove(callerClass + "." + method.name);
   }
 
-  private void processVariableInstruction(StringBuilder sb, VarInsnNode varInsn, Map<Integer, String> localVars,
-      String callerClass, MethodNode methodNode) {
-    String varName = getVariableName(varInsn.var, callerClass, methodNode);
-    if (varInsn.getOpcode() == Opcodes.ASTORE) {
-      localVars.put(varInsn.var, varName);
-      sb.append("note over ").append(getInterfaceName(callerClass)).append(" : Store ").append(varName).append("\n");
-    } else if (varInsn.getOpcode() == Opcodes.ALOAD) {
-      sb.append("note over ").append(getInterfaceName(callerClass)).append(" : Load ").append(varName).append("\n");
+  private void processInstruction(StringBuilder sb, AbstractInsnNode insn, MethodNode method,
+      List<ClassNode> allClasses, int depth,
+      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls,
+      Set<String> callStack) {
+
+    if (insn instanceof VarInsnNode) {
+      processVariableInstruction(sb, (VarInsnNode) insn, localVars, callerClass, method);
+    } else if (insn instanceof MethodInsnNode) {
+      processMethodCall(sb, (MethodInsnNode) insn, allClasses, depth, callerClass, localVars, externalCalls, callStack);
+    } else if (insn instanceof JumpInsnNode) {
+      processConditionalFlow(sb, (JumpInsnNode) insn, method, allClasses, depth, callerClass, localVars,
+          externalCalls, callStack);
+    } else if (insn instanceof LdcInsnNode) {
+      processConstantInstruction(sb, (LdcInsnNode) insn, localVars, callerClass);
+    } else if (insn instanceof InvokeDynamicInsnNode) {
+      processLambdaOrMethodReference(sb, (InvokeDynamicInsnNode) insn, allClasses, depth, callerClass, externalCalls,
+          callStack);
+    } else if (insn instanceof LabelNode) {
+      processLabelNode(sb, (LabelNode) insn, method);
     }
+  }
+
+  private void processVariableInstruction(StringBuilder sb, VarInsnNode varInsn, Map<Integer, String> localVars,
+      String callerClass, MethodNode method) {
+    String varName = getVariableName(varInsn.var, method);
+    String varType = getVariableType(varInsn.var, method);
+    String fullVarInfo = varName + ":" + varType;
+    localVars.put(varInsn.var, fullVarInfo);
+
+    String callerName = getInterfaceName(callerClass);
+    String operation = varInsn.getOpcode() == Opcodes.ILOAD || varInsn.getOpcode() == Opcodes.ALOAD ? "Load" : "Store";
+
+    logger.debug("{} variable: {} in method: {}.{}", operation, fullVarInfo, callerClass, method.name);
+
+    sb.append("note over ").append(callerName).append(" : ").append(operation).append(" ").append(fullVarInfo)
+        .append("\n");
+  }
+
+  private String getVariableName(int index, MethodNode method) {
+    if (method.localVariables != null) {
+      for (LocalVariableNode lvn : method.localVariables) {
+        if (lvn.index == index) {
+          return lvn.name;
+        }
+      }
+    }
+    return "var" + index;
+  }
+
+  private String getVariableType(int index, MethodNode method) {
+    if (method.localVariables != null) {
+      for (LocalVariableNode lvn : method.localVariables) {
+        if (lvn.index == index) {
+          return getSimpleClassName(lvn.desc);
+        }
+      }
+    }
+    return "Object";
   }
 
   private String getVariableName(int index, String className, MethodNode methodNode) {
@@ -260,76 +294,50 @@ public class SequenceDiagramGenerator {
   private void processMethodCall(StringBuilder sb, MethodInsnNode methodInsn, List<ClassNode> allClasses, int depth,
       String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls,
       Set<String> callStack) {
+
     String callerName = getInterfaceName(callerClass);
     String targetName = getInterfaceName(methodInsn.owner);
 
-    if (methodInsn.owner.contains("WebClient")) {
-      processWebClientCall(sb, methodInsn, callerName);
-    } else {
-      sb.append("\"").append(callerName).append("\" -> \"").append(targetName).append("\" : ")
-          .append(methodInsn.name).append("()\n");
-      sb.append("activate \"").append(targetName).append("\"\n");
-
-      ClassNode targetClass = findImplementationClass(allClasses, methodInsn.owner);
-      if (targetClass != null) {
-        MethodNode targetMethod = findMethodByName(targetClass, methodInsn.name);
-        if (targetMethod != null) {
-          processMethod(sb, targetMethod, allClasses, depth + 1, targetClass.name, new HashMap<>(localVars),
-              externalCalls, new HashSet<>(callStack));
-        } else {
-          logger.warn("Method {} not found in class {}", methodInsn.name, targetClass.name);
-        }
-      } else {
-        logger.warn("Implementation not found for {}", methodInsn.owner);
-      }
-
-      sb.append("\"").append(targetName).append("\" --> \"").append(callerName).append("\" : return\n");
-      sb.append("deactivate \"").append(targetName).append("\"\n");
-    }
-  }
-
-  private void processWebClientCall(StringBuilder sb, MethodInsnNode methodInsn, String callerName) {
-    String baseUrl = extractBaseUrl(methodInsn);
-    String externalServiceName = getExternalServiceName(baseUrl);
-
-    sb.append("\"").append(callerName).append("\" -> \"WebClient\" : ")
-        .append(methodInsn.name).append("(").append(baseUrl).append(")\n");
-    sb.append("\"WebClient\" -> \"").append(externalServiceName).append("\" : HTTP Request\n");
-    sb.append("\"").append(externalServiceName).append("\" --> \"WebClient\" : HTTP Response\n");
-    sb.append("\"WebClient\" --> \"").append(callerName).append("\" : return\n");
-  }
-
-  private void appendMethodParameters(StringBuilder sb, MethodInsnNode methodInsn, Map<Integer, String> localVars) {
+    // Get parameter types
     Type[] argumentTypes = Type.getArgumentTypes(methodInsn.desc);
-    List<String> parameterNames = new ArrayList<>();
+    String[] parameterTypes = new String[argumentTypes.length];
     for (int i = 0; i < argumentTypes.length; i++) {
-      String paramName = localVars.getOrDefault(i, "param" + i);
-      parameterNames.add(paramName + ": " + getSimplifiedTypeName(argumentTypes[i].getClassName()));
+      parameterTypes[i] = getSimpleClassName(argumentTypes[i].getClassName());
     }
-    sb.append(String.join(", ", parameterNames));
-  }
 
-  private boolean isExternalCall(MethodInsnNode methodInsn, List<ExternalCallInfo> externalCalls) {
-    return externalCalls.stream()
-        .anyMatch(call -> call.getPurpose().equals(methodInsn.owner + "." + methodInsn.name));
-  }
+    // Get return type
+    Type returnType = Type.getReturnType(methodInsn.desc);
+    String returnTypeName = getSimpleClassName(returnType.getClassName());
 
-  private void processExternalApiCall(StringBuilder sb, MethodInsnNode methodInsn,
-      List<ExternalCallInfo> externalCalls) {
-    ExternalCallInfo callInfo = externalCalls.stream()
-        .filter(call -> call.getPurpose().equals(methodInsn.owner + "." + methodInsn.name))
-        .findFirst()
-        .orElse(null);
-
-    if (callInfo != null) {
-      sb.append(getInterfaceName(methodInsn.owner)).append(" -> ")
-          .append(callInfo.getUrl()).append(" : ")
-          .append(callInfo.getHttpMethod()).append("\n");
-      sb.append("activate ").append(callInfo.getUrl()).append("\n");
-      sb.append(callInfo.getUrl()).append(" --> ")
-          .append(getInterfaceName(methodInsn.owner)).append(" : response\n");
-      sb.append("deactivate ").append(callInfo.getUrl()).append("\n");
+    // Build method call string
+    StringBuilder methodCallSb = new StringBuilder(methodInsn.name).append("(");
+    for (int i = 0; i < parameterTypes.length; i++) {
+      if (i > 0)
+        methodCallSb.append(", ");
+      methodCallSb.append(parameterTypes[i]);
     }
+    methodCallSb.append(")");
+
+    sb.append("\"").append(callerName).append("\" -> \"").append(targetName).append("\" : ")
+        .append(methodCallSb).append("\n");
+    sb.append("activate \"").append(targetName).append("\"\n");
+
+    ClassNode targetClass = findImplementationClass(allClasses, methodInsn.owner);
+    if (targetClass != null) {
+      MethodNode targetMethod = findMethodByName(targetClass, methodInsn.name);
+      if (targetMethod != null) {
+        processMethod(sb, targetMethod, allClasses, depth + 1, targetClass.name, new HashMap<>(localVars),
+            externalCalls, new HashSet<>(callStack));
+      } else {
+        logger.warn("Method {} not found in class {}", methodInsn.name, targetClass.name);
+      }
+    } else {
+      logger.warn("Implementation not found for {}", methodInsn.owner);
+    }
+
+    sb.append("\"").append(targetName).append("\" --> \"").append(callerName).append("\" : return ")
+        .append(returnTypeName).append("\n");
+    sb.append("deactivate \"").append(targetName).append("\"\n");
   }
 
   private void processLabelNode(StringBuilder sb, LabelNode labelNode, MethodNode method) {
@@ -341,53 +349,6 @@ public class SequenceDiagramGenerator {
           return;
         }
       }
-    }
-  }
-
-  private void processExternalApiCall(StringBuilder sb, ClassNode classNode, String methodName) {
-    String hostName = classToHostMap.getOrDefault(classNode.name, "ExternalService");
-    String httpMethod = extractHttpMethod(classNode, methodName);
-    String path = extractPath(classNode, methodName);
-    String responseModel = extractResponseModel(classNode, methodName);
-
-    sb.append("group #LightBlue External API Call\n");
-    sb.append(classNode.name).append(" -> ").append(hostName).append(" : ")
-        .append(httpMethod).append(" ").append(path).append("\n");
-    sb.append("activate ").append(hostName).append("\n");
-    sb.append(hostName).append(" --> ").append(classNode.name)
-        .append(" : return ").append(responseModel).append("\n");
-    sb.append("deactivate ").append(hostName).append("\n");
-    sb.append("end\n");
-  }
-
-  private void processReturnValue(StringBuilder sb, String className, String callerClass, String returnType) {
-    String simplifiedClassName = getInterfaceName(className);
-    String simplifiedCallerName = getInterfaceName(callerClass);
-    String simplifiedReturnType = getSimplifiedTypeName(returnType);
-
-    if (className.contains("WebClient")) {
-      // Handle WebClient calls
-      String baseUrl = clientToBaseUrlMap.getOrDefault(callerClass, "ExternalAPI");
-      if (returnType.contains("Mono") || returnType.contains("Flux")) {
-        sb.append("note right of ").append(baseUrl).append("\n")
-            .append("Asynchronous operation\n")
-            .append("Return type: ").append(simplifiedReturnType).append("\n")
-            .append("end note\n");
-      }
-      sb.append(baseUrl).append(" --> ").append(simplifiedCallerName).append(" : return ")
-          .append(simplifiedReturnType).append("\n");
-      sb.append("deactivate ").append(baseUrl).append("\n");
-    } else {
-      // Handle normal method calls
-      if (returnType.contains("Mono") || returnType.contains("Flux")) {
-        sb.append("note right of ").append(simplifiedClassName).append("\n")
-            .append("Asynchronous operation\n")
-            .append("Return type: ").append(simplifiedReturnType).append("\n")
-            .append("end note\n");
-      }
-      sb.append(simplifiedClassName).append(" --> ").append(simplifiedCallerName).append(" : return ")
-          .append(simplifiedReturnType).append("\n");
-      sb.append("deactivate ").append(simplifiedClassName).append("\n");
     }
   }
 
@@ -406,60 +367,104 @@ public class SequenceDiagramGenerator {
   private void processConditionalFlow(StringBuilder sb, JumpInsnNode jumpInsn, MethodNode method,
       List<ClassNode> allClasses, int depth, String callerClass, Map<Integer, String> localVars,
       List<ExternalCallInfo> externalCalls, Set<String> callStack) {
-    String callerName = getInterfaceName(callerClass);
-    sb.append("alt ").append(getConditionDescription(jumpInsn)).append("\n");
 
-    groupCounter++;
-    String groupName = "group_" + groupCounter;
-    sb.append("group #LightYellow ").append(groupName).append("\n");
+    String condition = getConditionFromPreviousInsn(jumpInsn.getPrevious());
+    sb.append("alt ").append(condition).append("\n");
 
-    // Process the "if" block
+    // Process the 'if' block
     AbstractInsnNode currentInsn = jumpInsn.getNext();
     while (currentInsn != null && currentInsn != jumpInsn.label) {
-      if (currentInsn instanceof MethodInsnNode) {
-        processMethodCall(sb, (MethodInsnNode) currentInsn, allClasses, depth + 1, callerClass, localVars,
-            externalCalls, new HashSet<>(callStack));
-      }
+      processInstruction(sb, currentInsn, method, allClasses, depth + 1, callerClass, localVars, externalCalls,
+          callStack);
       currentInsn = currentInsn.getNext();
     }
 
-    sb.append("end\n");
+    // Process the 'else' block if it exists
     sb.append("else\n");
-
-    groupCounter++;
-    String elseGroupName = "group_" + groupCounter;
-    sb.append("group #LightCyan ").append(elseGroupName).append("\n");
-
-    // Process the "else" block
     while (currentInsn != null
         && !(currentInsn instanceof LabelNode && ((LabelNode) currentInsn).getLabel() == jumpInsn.label.getLabel())) {
-      if (currentInsn instanceof MethodInsnNode) {
-        processMethodCall(sb, (MethodInsnNode) currentInsn, allClasses, depth + 1, callerClass, localVars,
-            externalCalls, new HashSet<>(callStack));
-      }
+      processInstruction(sb, currentInsn, method, allClasses, depth + 1, callerClass, localVars, externalCalls,
+          callStack);
       currentInsn = currentInsn.getNext();
     }
 
-    sb.append("end\n");
     sb.append("end\n");
   }
 
-  private String getConditionDescription(JumpInsnNode jumpInsn) {
+  private String getConditionFromPreviousInsn(AbstractInsnNode insn) {
+    StringBuilder condition = new StringBuilder();
+    AbstractInsnNode currentInsn = insn;
+
+    // Traverse backwards to find the condition
+    while (currentInsn != null && !(currentInsn instanceof JumpInsnNode)) {
+      if (currentInsn instanceof VarInsnNode) {
+        VarInsnNode varInsn = (VarInsnNode) currentInsn;
+        condition.insert(0, "var" + varInsn.var + ".");
+      } else if (currentInsn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) currentInsn;
+        condition.insert(0, ldcInsn.cst.toString() + " ");
+      } else if (currentInsn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) currentInsn;
+        condition.insert(0, methodInsn.name + "() ");
+      } else if (currentInsn instanceof FieldInsnNode) {
+        FieldInsnNode fieldInsn = (FieldInsnNode) currentInsn;
+        condition.insert(0, fieldInsn.name + " ");
+      }
+
+      currentInsn = currentInsn.getPrevious();
+    }
+
+    if (currentInsn instanceof JumpInsnNode) {
+      JumpInsnNode jumpInsn = (JumpInsnNode) currentInsn;
+      String operator = getOperatorFromJumpInsn(jumpInsn);
+      condition.append(operator).append(" ");
+
+      // Add the right-hand side of the condition
+      AbstractInsnNode nextInsn = jumpInsn.getNext();
+      if (nextInsn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) nextInsn;
+        condition.append(ldcInsn.cst.toString());
+      } else if (nextInsn instanceof VarInsnNode) {
+        VarInsnNode varInsn = (VarInsnNode) nextInsn;
+        condition.append("var").append(varInsn.var);
+      }
+    }
+
+    return condition.length() > 0 ? condition.toString().trim().replace(".", " ") : "[complex condition]";
+  }
+
+  private String getOperatorFromJumpInsn(JumpInsnNode jumpInsn) {
     switch (jumpInsn.getOpcode()) {
       case Opcodes.IFEQ:
-        return "if equals";
+        return "==";
       case Opcodes.IFNE:
-        return "if not equals";
+        return "!=";
       case Opcodes.IFLT:
-        return "if less than";
+        return "<";
       case Opcodes.IFGE:
-        return "if greater than or equals";
+        return ">=";
       case Opcodes.IFGT:
-        return "if greater than";
+        return ">";
       case Opcodes.IFLE:
-        return "if less than or equals";
+        return "<=";
+      case Opcodes.IF_ICMPEQ:
+        return "==";
+      case Opcodes.IF_ICMPNE:
+        return "!=";
+      case Opcodes.IF_ICMPLT:
+        return "<";
+      case Opcodes.IF_ICMPGE:
+        return ">=";
+      case Opcodes.IF_ICMPGT:
+        return ">";
+      case Opcodes.IF_ICMPLE:
+        return "<=";
+      case Opcodes.IFNULL:
+        return "== null";
+      case Opcodes.IFNONNULL:
+        return "!= null";
       default:
-        return "condition";
+        return "?";
     }
   }
 
@@ -832,11 +837,6 @@ public class SequenceDiagramGenerator {
     return fullClassName.substring(lastSlashIndex + 1);
   }
 
-  private boolean hasSpringAnnotation(ClassNode classNode) {
-    return classNode.visibleAnnotations != null && classNode.visibleAnnotations.stream()
-        .anyMatch(an -> an.desc.contains("org/springframework"));
-  }
-
   private void processDatabaseInteraction(StringBuilder sb, String repositoryName) {
     String databaseName = getDatabaseName(repositoryName);
     sb.append(repositoryName).append(" -> ").append(databaseName).append(" : execute query\n");
@@ -917,29 +917,6 @@ public class SequenceDiagramGenerator {
     }
 
     sb.append("end\n");
-  }
-
-  private void processWebClientInitialization(StringBuilder sb, MethodInsnNode methodInsn, String callerClass) {
-    String callerName = getInterfaceName(callerClass);
-    String baseUrl = extractBaseUrl(methodInsn);
-
-    if (baseUrl != null) {
-      clientToBaseUrlMap.put(callerClass, baseUrl);
-      String externalServiceName = getExternalServiceName(baseUrl);
-
-      if (!orderedParticipants.contains(externalServiceName)) {
-        orderedParticipants.add(externalServiceName);
-        sb.append("participant ").append(externalServiceName).append(" as External API\n");
-      }
-
-      sb.append(callerName).append(" -> WebClient : baseUrl(")
-          .append(baseUrl).append(")\n");
-      logger.info("WebClient initialized for {} with base URL: {}", callerClass,
-          baseUrl);
-    } else {
-      sb.append("note over ").append(callerName).append(" : Initialize WebClient (unknown URL)\n");
-      logger.warn("Unable to extract base URL for WebClient initialization in class: {}", callerClass);
-    }
   }
 
   private String extractBaseUrl(MethodInsnNode methodInsn) {
