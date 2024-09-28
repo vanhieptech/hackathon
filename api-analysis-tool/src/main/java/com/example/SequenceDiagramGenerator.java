@@ -20,10 +20,37 @@ public class SequenceDiagramGenerator {
   private final Map<String, String> classToHostMap = new HashMap<>();
   private final Map<String, Set<String>> methodToAnnotations = new HashMap<>();
   private final Map<String, String> clientToBaseUrlMap = new HashMap<>();
+  private int groupCounter = 0;
+
+  // Configuration options
   private boolean useNamingConventions = true;
   private Set<String> priorityPackages = new HashSet<>();
-  private int groupCounter = 0;
-  private String currentClass;
+  private int maxDepth = 10;
+
+  // Custom rules
+  private List<ImplementationMatcher> customRules = new ArrayList<>();
+
+  @FunctionalInterface
+  public interface ImplementationMatcher {
+    boolean matches(ClassNode classNode, String interfaceName);
+  }
+
+  // Configuration methods
+  public void setUseNamingConventions(boolean useNamingConventions) {
+    this.useNamingConventions = useNamingConventions;
+  }
+
+  public void addPriorityPackage(String packageName) {
+    priorityPackages.add(packageName);
+  }
+
+  public void setMaxDepth(int maxDepth) {
+    this.maxDepth = maxDepth;
+  }
+
+  public void addCustomRule(ImplementationMatcher matcher) {
+    customRules.add(matcher);
+  }
 
   public String generateSequenceDiagram(List<ClassNode> allClasses) {
     logger.info("Starting sequence diagram generation for {} classes",
@@ -78,7 +105,7 @@ public class SequenceDiagramGenerator {
       MethodNode method = findMethodByName(controllerClass, getMethodName(api.getMethodName()));
       if (method != null) {
         processedMethods.clear();
-        processMethod(sb, method, allClasses, 1, controllerClass.name, new HashMap<>(), externalCalls);
+        processMethod(sb, method, allClasses, 1, controllerClass.name, new HashMap<>(), externalCalls, new HashSet<>());
       }
     }
 
@@ -88,10 +115,14 @@ public class SequenceDiagramGenerator {
   }
 
   private void processMethod(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
-      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls) {
-    if (depth > 10 || processedMethods.contains(callerClass + "." + method.name)) {
+      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls,
+      Set<String> callStack) {
+    if (depth > maxDepth || callStack.contains(callerClass + "." + method.name)) {
+      logger.warn("Possible circular dependency or max depth reached: {}.{}", callerClass, method.name);
       return;
     }
+    callStack.add(callerClass + "." + method.name);
+
     processedMethods.add(callerClass + "." + method.name);
 
     processMethodAnnotations(sb, callerClass, method);
@@ -107,21 +138,24 @@ public class SequenceDiagramGenerator {
       if (insn instanceof VarInsnNode) {
         processVariableInstruction(sb, (VarInsnNode) insn, localVars, callerClass, method);
       } else if (insn instanceof MethodInsnNode) {
-        processMethodCall(sb, (MethodInsnNode) insn, allClasses, depth, callerClass, localVars, externalCalls);
+        processMethodCall(sb, (MethodInsnNode) insn, allClasses, depth, callerClass, localVars, externalCalls,
+            callStack);
       } else if (insn instanceof JumpInsnNode) {
         processConditionalFlow(sb, (JumpInsnNode) insn, method, allClasses, depth, callerClass, localVars,
-            externalCalls);
+            externalCalls, callStack);
       } else if (insn instanceof LdcInsnNode) {
         processConstantInstruction(sb, (LdcInsnNode) insn, localVars, callerClass);
       } else if (insn instanceof InvokeDynamicInsnNode) {
-        processLambdaOrMethodReference(sb, (InvokeDynamicInsnNode) insn, allClasses, depth, callerClass, externalCalls);
+        processLambdaOrMethodReference(sb, (InvokeDynamicInsnNode) insn, allClasses, depth, callerClass, externalCalls,
+            callStack);
       } else if (insn instanceof LabelNode) {
         processLabelNode(sb, (LabelNode) insn, method);
       }
     }
 
     for (TryCatchBlockNode tryCatchBlock : method.tryCatchBlocks) {
-      processTryCatchBlock(sb, tryCatchBlock, method, allClasses, depth, callerClass, localVars, externalCalls);
+      processTryCatchBlock(sb, tryCatchBlock, method, allClasses, depth, callerClass, localVars, externalCalls,
+          callStack);
     }
 
     if (isAsync)
@@ -133,6 +167,8 @@ public class SequenceDiagramGenerator {
     if (callerClass.toLowerCase().contains("repository")) {
       processDatabaseInteraction(sb, getSimpleClassName(callerClass));
     }
+
+    callStack.remove(callerClass + "." + method.name);
   }
 
   private void processVariableInstruction(StringBuilder sb, VarInsnNode varInsn, Map<Integer, String> localVars,
@@ -222,9 +258,8 @@ public class SequenceDiagramGenerator {
   }
 
   private void processMethodCall(StringBuilder sb, MethodInsnNode methodInsn, List<ClassNode> allClasses, int depth,
-      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls) {
-    logger.debug("Processing method call: {}.{}", methodInsn.owner,
-        methodInsn.name);
+      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls,
+      Set<String> callStack) {
     String callerName = getInterfaceName(callerClass);
     String targetName = getInterfaceName(methodInsn.owner);
 
@@ -240,10 +275,9 @@ public class SequenceDiagramGenerator {
         MethodNode targetMethod = findMethodByName(targetClass, methodInsn.name);
         if (targetMethod != null) {
           processMethod(sb, targetMethod, allClasses, depth + 1, targetClass.name, new HashMap<>(localVars),
-              externalCalls);
+              externalCalls, new HashSet<>(callStack));
         } else {
-          logger.warn("Method {} not found in class {}", methodInsn.name,
-              targetClass.name);
+          logger.warn("Method {} not found in class {}", methodInsn.name, targetClass.name);
         }
       } else {
         logger.warn("Implementation not found for {}", methodInsn.owner);
@@ -371,7 +405,7 @@ public class SequenceDiagramGenerator {
 
   private void processConditionalFlow(StringBuilder sb, JumpInsnNode jumpInsn, MethodNode method,
       List<ClassNode> allClasses, int depth, String callerClass, Map<Integer, String> localVars,
-      List<ExternalCallInfo> externalCalls) {
+      List<ExternalCallInfo> externalCalls, Set<String> callStack) {
     String callerName = getInterfaceName(callerClass);
     sb.append("alt ").append(getConditionDescription(jumpInsn)).append("\n");
 
@@ -384,7 +418,7 @@ public class SequenceDiagramGenerator {
     while (currentInsn != null && currentInsn != jumpInsn.label) {
       if (currentInsn instanceof MethodInsnNode) {
         processMethodCall(sb, (MethodInsnNode) currentInsn, allClasses, depth + 1, callerClass, localVars,
-            externalCalls);
+            externalCalls, new HashSet<>(callStack));
       }
       currentInsn = currentInsn.getNext();
     }
@@ -401,7 +435,7 @@ public class SequenceDiagramGenerator {
         && !(currentInsn instanceof LabelNode && ((LabelNode) currentInsn).getLabel() == jumpInsn.label.getLabel())) {
       if (currentInsn instanceof MethodInsnNode) {
         processMethodCall(sb, (MethodInsnNode) currentInsn, allClasses, depth + 1, callerClass, localVars,
-            externalCalls);
+            externalCalls, new HashSet<>(callStack));
       }
       currentInsn = currentInsn.getNext();
     }
@@ -623,18 +657,18 @@ public class SequenceDiagramGenerator {
 
     // Check cache first
     if (implementationCache.containsKey(interfaceName)) {
-      ClassNode cachedImplementation = implementationCache.get(interfaceName);
-      if (cachedImplementation != null) {
-        logger.debug("Found cached implementation for {}: {}", interfaceName, cachedImplementation.name);
-        return cachedImplementation;
+      ClassNode cachedResult = implementationCache.get(interfaceName);
+      if (cachedResult != null) {
+        logger.debug("Found cached implementation for {}: {}", interfaceName, cachedResult.name);
       } else {
-        logger.debug("Cached implementation for {} is null", interfaceName);
+        logger.debug("Cached null implementation for {}", interfaceName);
       }
+      return cachedResult;
     }
 
     ClassNode result = findImplementationClassInternal(allClasses, interfaceName);
 
-    // Cache the result
+    // Cache the result (even if it's null)
     implementationCache.put(interfaceName, result);
     return result;
   }
@@ -690,17 +724,30 @@ public class SequenceDiagramGenerator {
       return abstractImplementations.get(0);
     }
 
-    // Step 6: Look for classes with similar names (potential naming convention
-    // match)
-    String simpleInterfaceName = getSimpleClassName(interfaceName);
-    List<ClassNode> potentialMatches = allClasses.stream()
-        .filter(classNode -> getSimpleClassName(classNode.name).contains(simpleInterfaceName))
-        .collect(Collectors.toList());
+    // Step 6: Apply custom rules
+    for (ImplementationMatcher matcher : customRules) {
+      Optional<ClassNode> match = allClasses.stream()
+          .filter(classNode -> matcher.matches(classNode, interfaceName))
+          .findFirst();
+      if (match.isPresent()) {
+        logger.info("Found implementation for {} using custom rule: {}", interfaceName, match.get().name);
+        return match.get();
+      }
+    }
 
-    if (!potentialMatches.isEmpty()) {
-      logger.warn("No exact implementation found for {}. Using potential match based on naming convention: {}",
-          interfaceName, potentialMatches.get(0).name);
-      return potentialMatches.get(0);
+    // Step 7: Look for classes with similar names (if naming conventions are
+    // enabled)
+    if (useNamingConventions) {
+      String simpleInterfaceName = getSimpleClassName(interfaceName);
+      List<ClassNode> potentialMatches = allClasses.stream()
+          .filter(classNode -> getSimpleClassName(classNode.name).contains(simpleInterfaceName))
+          .collect(Collectors.toList());
+
+      if (!potentialMatches.isEmpty()) {
+        logger.warn("No exact implementation found for {}. Using potential match based on naming convention: {}",
+            interfaceName, potentialMatches.get(0).name);
+        return potentialMatches.get(0);
+      }
     }
 
     logger.warn("No implementation found for {}. Using the interface/class itself.", interfaceName);
@@ -785,6 +832,11 @@ public class SequenceDiagramGenerator {
     return fullClassName.substring(lastSlashIndex + 1);
   }
 
+  private boolean hasSpringAnnotation(ClassNode classNode) {
+    return classNode.visibleAnnotations != null && classNode.visibleAnnotations.stream()
+        .anyMatch(an -> an.desc.contains("org/springframework"));
+  }
+
   private void processDatabaseInteraction(StringBuilder sb, String repositoryName) {
     String databaseName = getDatabaseName(repositoryName);
     sb.append(repositoryName).append(" -> ").append(databaseName).append(" : execute query\n");
@@ -795,16 +847,18 @@ public class SequenceDiagramGenerator {
 
   private void processConstantInstruction(StringBuilder sb, LdcInsnNode ldcInsn, Map<Integer, String> localVars,
       String callerClass) {
+    String callerName = getInterfaceName(callerClass);
     String constantValue = ldcInsn.cst.toString();
-    sb.append("note over ").append(getInterfaceName(callerClass)).append(" : Load constant: ").append(constantValue)
-        .append("\n");
+
+    sb.append("note over ").append(callerName).append(" : Constant: ").append(constantValue).append("\n");
   }
 
-  private void processLambdaOrMethodReference(StringBuilder sb, InvokeDynamicInsnNode insn, List<ClassNode> allClasses,
-      int depth, String callerClass, List<ExternalCallInfo> externalCalls) {
+  private void processLambdaOrMethodReference(StringBuilder sb, InvokeDynamicInsnNode insnNode,
+      List<ClassNode> allClasses,
+      int depth, String callerClass, List<ExternalCallInfo> externalCalls, Set<String> callStack) {
     String callerName = getInterfaceName(callerClass);
-    String lambdaName = insn.name;
-    String lambdaDesc = insn.desc;
+    String lambdaName = insnNode.name;
+    String lambdaDesc = insnNode.desc;
 
     sb.append("note over ").append(callerName).append("\n");
     sb.append("Lambda or Method Reference: ").append(lambdaName).append("\n");
@@ -812,13 +866,14 @@ public class SequenceDiagramGenerator {
     sb.append("end note\n");
 
     // Try to find the implemented method
-    String implementedMethodName = extractImplementedMethodName(insn);
+    String implementedMethodName = extractImplementedMethodName(insnNode);
     if (implementedMethodName != null) {
       ClassNode targetClass = findClassByName(allClasses, callerClass);
       if (targetClass != null) {
         MethodNode targetMethod = findMethodByName(targetClass, implementedMethodName);
         if (targetMethod != null) {
-          processMethod(sb, targetMethod, allClasses, depth + 1, callerClass, new HashMap<>(), externalCalls);
+          processMethod(sb, targetMethod, allClasses, depth + 1, callerClass, new HashMap<>(), externalCalls,
+              callStack);
         }
       }
     }
@@ -837,14 +892,14 @@ public class SequenceDiagramGenerator {
 
   private void processTryCatchBlock(StringBuilder sb, TryCatchBlockNode tryCatchBlock, MethodNode method,
       List<ClassNode> allClasses, int depth, String callerClass, Map<Integer, String> localVars,
-      List<ExternalCallInfo> externalCalls) {
+      List<ExternalCallInfo> externalCalls, Set<String> callStack) {
     sb.append("group #LightGray Try\n");
 
     AbstractInsnNode currentInsn = method.instructions.get(method.instructions.indexOf(tryCatchBlock.start));
     while (currentInsn != tryCatchBlock.end) {
       if (currentInsn instanceof MethodInsnNode) {
         processMethodCall(sb, (MethodInsnNode) currentInsn, allClasses, depth + 1, callerClass, localVars,
-            externalCalls);
+            externalCalls, callStack);
       }
       currentInsn = currentInsn.getNext();
     }
@@ -856,7 +911,7 @@ public class SequenceDiagramGenerator {
     while (!(currentInsn instanceof LabelNode)) {
       if (currentInsn instanceof MethodInsnNode) {
         processMethodCall(sb, (MethodInsnNode) currentInsn, allClasses, depth + 1, callerClass, localVars,
-            externalCalls);
+            externalCalls, callStack);
       }
       currentInsn = currentInsn.getNext();
     }
@@ -994,18 +1049,5 @@ public class SequenceDiagramGenerator {
       }
     }
     return sequence.toString();
-  }
-
-  public void setUseNamingConventions(boolean useNamingConventions) {
-    this.useNamingConventions = useNamingConventions;
-  }
-
-  public void addPriorityPackage(String packageName) {
-    priorityPackages.add(packageName);
-  }
-
-  private boolean hasSpringAnnotation(ClassNode classNode) {
-    return classNode.visibleAnnotations != null && classNode.visibleAnnotations.stream()
-        .anyMatch(an -> an.desc.contains("org/springframework"));
   }
 }
