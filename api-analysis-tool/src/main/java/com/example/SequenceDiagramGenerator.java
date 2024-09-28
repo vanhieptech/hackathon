@@ -144,8 +144,6 @@ public class SequenceDiagramGenerator {
 
   private void generateSequenceForAPI(StringBuilder sb, APIInfo api, List<ClassNode> allClasses,
       List<ExternalCallInfo> externalCalls) {
-    logger.info("Generating sequence for API: {}", api.getMethodName());
-    logger.info("HTTP Method: {}, Path: {}", api.getHttpMethod(), api.getPath());
     sb.append("== ").append(api.getMethodName()).append(" ==\n");
     String controllerName = getSimpleClassName(getInterfaceName(getClassName(api.getMethodName())));
     sb.append("\"Client\" -> \"").append(controllerName).append("\" : ")
@@ -164,9 +162,17 @@ public class SequenceDiagramGenerator {
       }
     }
 
+    String returnType = simplifyReturnType(api.getReturnType());
     sb.append("\"").append(controllerName).append("\" --> \"Client\" : HTTP Response (")
-        .append(api.getReturnType()).append(")\n");
+        .append(returnType).append(")\n");
     sb.append("deactivate \"").append(controllerName).append("\"\n\n");
+  }
+
+  private String simplifyReturnType(String returnType) {
+    if (returnType.startsWith("Optional<")) {
+      return returnType.substring(9, returnType.length() - 1);
+    }
+    return returnType;
   }
 
   private void processMethodHighLevel(StringBuilder sb, MethodNode method, List<ClassNode> allClasses,
@@ -174,9 +180,9 @@ public class SequenceDiagramGenerator {
     if (depth > MAX_DEPTH || processedMethods.contains(method.name)) {
       return;
     }
-    processedMethods.add(method.name);
     logger.info("Processing method: {} at depth {}", method.name, depth);
     logger.info("Caller: {}", callerName);
+    processedMethods.add(method.name);
     String interfaceCallerName = getInterfaceName(getSimpleClassName(callerName));
 
     for (AbstractInsnNode insn : method.instructions) {
@@ -186,22 +192,8 @@ public class SequenceDiagramGenerator {
         String interfaceCalleeName = getInterfaceName(getSimpleClassName(calleeName));
 
         if (isSignificantCall(interfaceCalleeName)) {
-          String calleeMethod = methodInsn.name;
-          sb.append("\"").append(interfaceCallerName).append("\" -> \"").append(interfaceCalleeName).append("\" : ")
-              .append(calleeMethod).append("\n");
-          sb.append("activate \"").append(interfaceCalleeName).append("\"\n");
-
-          ClassNode calleeClass = findImplementationClass(allClasses, methodInsn.owner);
-          if (calleeClass != null) {
-            MethodNode calleeMethodNode = findMethodByName(calleeClass, calleeMethod);
-            if (calleeMethodNode != null) {
-              processMethodHighLevel(sb, calleeMethodNode, allClasses, depth + 1, interfaceCalleeName, externalCalls);
-            }
-          }
-
-          sb.append("\"").append(interfaceCalleeName).append("\" --> \"").append(interfaceCallerName)
-              .append("\" : return\n");
-          sb.append("deactivate \"").append(interfaceCalleeName).append("\"\n");
+          processMethodCall(sb, methodInsn, allClasses, depth, interfaceCallerName, new HashMap<>(), externalCalls,
+              new HashSet<>());
         }
       }
     }
@@ -221,7 +213,7 @@ public class SequenceDiagramGenerator {
     for (AbstractInsnNode insn : method.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
-        String owner = methodInsn.owner.replace('/', '.');
+        String owner = getSimpleClassName(methodInsn.owner);
 
         if (isExternalCallMethod(owner, methodInsn.name)) {
           ExternalCallInfo matchingCall = findMatchingExternalCall(externalCalls, method.name, methodInsn.name);
@@ -289,24 +281,26 @@ public class SequenceDiagramGenerator {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
         String owner = getSimpleClassName(methodInsn.owner);
-        if (isRepositoryMethod(owner, methodInsn.name)) {
+        if (owner.endsWith("Repository")) {
+          String repositoryName = getSimpleClassName(owner);
+          String databaseName = getDatabaseName(repositoryName);
           String operation = getDatabaseOperation(methodInsn.name);
-          String databaseName = getDatabaseName(owner);
-          logger.info("Processing database interaction: {} on {}", operation, databaseName);
 
-          sb.append("group ").append(operation).append(" Operation\n");
-          sb.append("\"").append(callerName).append("\" -> \"").append(owner).append("\" : ")
-              .append(methodInsn.name).append("\n");
-          sb.append("activate \"").append(owner).append("\"\n");
+          String methodCall = getMethodCallWithParams(methodInsn);
+          String returnType = getReturnType(methodInsn.desc);
 
-          sb.append("\"").append(owner).append("\" -> \"").append(databaseName).append("\" : ")
+          sb.append("group Database Operation\n");
+          sb.append("\"").append(callerName).append("\" -> \"").append(repositoryName).append("\" : ")
+              .append(methodCall).append("\n");
+          sb.append("activate \"").append(repositoryName).append("\"\n");
+          sb.append("\"").append(repositoryName).append("\" -> \"").append(databaseName).append("\" : ")
               .append(operation).append("\n");
           sb.append("activate \"").append(databaseName).append("\"\n");
-          sb.append("\"").append(databaseName).append("\" --> \"").append(owner).append("\" : return data\n");
+          sb.append("\"").append(databaseName).append("\" --> \"").append(repositoryName).append("\" : return data\n");
           sb.append("deactivate \"").append(databaseName).append("\"\n");
-
-          sb.append("\"").append(owner).append("\" --> \"").append(callerName).append("\" : return result\n");
-          sb.append("deactivate \"").append(owner).append("\"\n");
+          sb.append("\"").append(repositoryName).append("\" --> \"").append(callerName).append("\" : return ")
+              .append(returnType).append("\n");
+          sb.append("deactivate \"").append(repositoryName).append("\"\n");
           sb.append("end\n");
         }
       }
@@ -315,6 +309,23 @@ public class SequenceDiagramGenerator {
     if (isTransactional) {
       sb.append("note over ").append(callerName).append(" : End Transaction\n");
     }
+  }
+
+  private String getMethodCallWithParams(MethodInsnNode methodInsn) {
+    Type[] argumentTypes = Type.getArgumentTypes(methodInsn.desc);
+    StringBuilder methodCallSb = new StringBuilder(methodInsn.name).append("(");
+    for (int i = 0; i < argumentTypes.length; i++) {
+      if (i > 0)
+        methodCallSb.append(", ");
+      methodCallSb.append(getSimplifiedTypeName(argumentTypes[i].getClassName())).append(" arg").append(i);
+    }
+    methodCallSb.append(")");
+    return methodCallSb.toString();
+  }
+
+  private String getReturnType(String desc) {
+    Type returnType = Type.getReturnType(desc);
+    return getSimplifiedTypeName(returnType.getClassName());
   }
 
   private boolean isTransactionalMethod(MethodNode method) {
@@ -375,7 +386,7 @@ public class SequenceDiagramGenerator {
 
     // Check for database interactions
     if (callerClass.toLowerCase().contains("repository")) {
-      processDatabaseInteraction(sb, getSimpleClassName(callerClass), method.name);
+      processDatabaseInteractions(sb, method, callerClass);
     }
 
     callStack.remove(callerClass + "." + method.name);
@@ -568,36 +579,28 @@ public class SequenceDiagramGenerator {
     return annotations != null && annotations.contains("@Async");
   }
 
-  private void processMethodCall(StringBuilder sb, MethodInsnNode methodInsn, List<ClassNode> allClasses, int depth,
-      String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls,
+  private void processMethodCall(StringBuilder sb, MethodInsnNode methodInsn, List<ClassNode> allClasses,
+      int depth, String callerClass, Map<Integer, String> localVars, List<ExternalCallInfo> externalCalls,
       Set<String> callStack) {
-
     String callerName = getInterfaceName(callerClass);
     String targetName = getInterfaceName(methodInsn.owner);
 
-    // Get parameter types and names
     Type[] argumentTypes = Type.getArgumentTypes(methodInsn.desc);
-    String[] parameterTypes = new String[argumentTypes.length];
-    String[] parameterNames = new String[argumentTypes.length];
-
-    // Extract actual parameter values from the stack
-    List<String> actualParams = extractActualParameters(methodInsn, localVars);
+    String[] parameterNames = getParameterNames(methodInsn.owner, methodInsn.name, methodInsn.desc, allClasses);
 
     StringBuilder methodCallSb = new StringBuilder(methodInsn.name).append("(");
     for (int i = 0; i < argumentTypes.length; i++) {
       if (i > 0)
         methodCallSb.append(", ");
       String paramType = getSimplifiedTypeName(argumentTypes[i].getClassName());
-      String paramValue = i < actualParams.size() ? actualParams.get(i) : "?";
-      parameterTypes[i] = paramType;
-      parameterNames[i] = paramValue;
-      methodCallSb.append(paramType).append(" ").append(paramValue);
+      String paramName = (parameterNames != null && i < parameterNames.length) ? parameterNames[i] : "arg" + i;
+      methodCallSb.append(paramType).append(" ").append(paramName);
     }
     methodCallSb.append(")");
 
     // Get return type
     Type returnType = Type.getReturnType(methodInsn.desc);
-    String returnTypeName = getSimplifiedTypeName(returnType.getClassName());
+    String returnTypeName = simplifyReturnType(getSimplifiedTypeName(returnType.getClassName()));
 
     logger.info("Method call: {}.{} -> {}.{}", callerClass, methodInsn.name, methodInsn.owner, methodCallSb);
     logger.info("Return type: {}", returnTypeName);
@@ -613,14 +616,10 @@ public class SequenceDiagramGenerator {
         logger.info("Processing method body: {}.{}", targetClass.name, targetMethod.name);
         processMethod(sb, targetMethod, allClasses, depth + 1, targetClass.name, new HashMap<>(localVars),
             externalCalls, new HashSet<>(callStack));
-      } else {
-        logger.warn("Method {} not found in class {}", methodInsn.name, targetClass.name);
       }
-    } else {
-      logger.warn("Implementation not found for {}", methodInsn.owner);
     }
 
-    sb.append("\"").append(targetName).append("\" --> \"").append(callerName).append("\" : return ")
+    sb.append("\"").append(targetName).append("\" --> \"").append(callerName).append("\" : ")
         .append(returnTypeName).append("\n");
     sb.append("deactivate \"").append(targetName).append("\"\n");
   }
@@ -695,16 +694,13 @@ public class SequenceDiagramGenerator {
   }
 
   private String getSimplifiedTypeName(String fullTypeName) {
-    if (fullTypeName.equals("void")) {
-      return "void";
+    String simpleName = getSimpleClassName(fullTypeName);
+    if (simpleName.contains("<")) {
+      String baseName = simpleName.substring(0, simpleName.indexOf('<'));
+      String genericPart = simpleName.substring(simpleName.indexOf('<'));
+      return baseName + genericPart.replaceAll("[a-zA-Z]+\\.", "");
     }
-    if (fullTypeName.contains("<")) {
-      String baseType = fullTypeName.substring(fullTypeName.lastIndexOf('.') + 1, fullTypeName.indexOf('<'));
-      String paramType = getSimplifiedTypeName(
-          fullTypeName.substring(fullTypeName.indexOf('<') + 1, fullTypeName.lastIndexOf('>')));
-      return baseType + "<" + paramType + ">";
-    }
-    return fullTypeName.substring(fullTypeName.lastIndexOf('.') + 1);
+    return simpleName;
   }
 
   private void processConditionalFlow(StringBuilder sb, JumpInsnNode jumpInsn, MethodNode method,
