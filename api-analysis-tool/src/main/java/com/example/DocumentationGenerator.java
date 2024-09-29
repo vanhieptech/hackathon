@@ -34,7 +34,7 @@ public class DocumentationGenerator {
 
       writer.write("## External API Calls\n\n");
       for (ExternalCallInfo externalCall : externalCalls) {
-        writer.write("### " + externalCall.getPurpose() + "\n\n");
+        writer.write("### " + externalCall.getMethodName() + "\n\n");
         writer.write("- **Service Name:** " + externalCall.getServiceName() + "\n");
         writer.write("- **URL:** " + externalCall.getUrl() + "\n");
         writer.write("- **HTTP Method:** " + externalCall.getHttpMethod() + "\n");

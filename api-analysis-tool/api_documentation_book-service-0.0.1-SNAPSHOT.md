@@ -76,12 +76,3 @@
 
 ## External API Calls
 
-### getAuthor
-
-- **Service Name:** AuthorService
-- **URL:** Unknown
-- **HTTP Method:** GET
-- **Description:** Method: getAuthor
-- **Parameters:**
-- **Response Type:** com.example.dto.AuthorDTO
-

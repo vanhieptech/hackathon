@@ -1,13 +1,14 @@
 package com.example;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class ExternalCallInfo {
   private String url;
   private String httpMethod;
   private List<String> parameters = new ArrayList<>();
-  private String purpose; // This should be in the format "ClientClassName.methodName"
+  private String methodName; // This should be in the format "ClientClassName.methodName"
   private String responseType;
   private String callerMethod;
   private String fallbackMethod;
@@ -18,40 +19,28 @@ public class ExternalCallInfo {
   private String callerClassName;
   private String callerMethodName;
 
-  public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String purpose) {
+  public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String methodName) {
     this.url = url;
     this.httpMethod = httpMethod;
     this.parameters = parameters;
-    this.purpose = purpose;
+    this.methodName = methodName;
   }
 
-  public ExternalCallInfo(String serviceName, String url, String httpMethod, String purpose, String description,
-      String responseType, List<String> parameters) {
-    this.serviceName = serviceName;
-    this.url = url;
-    this.httpMethod = httpMethod;
-    this.purpose = purpose;
-    this.description = description;
-    this.responseType = responseType;
-    this.parameters = parameters;
-  }
-
-  public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String purpose, String responseType,
-      String callerMethod, String fallbackMethod, String sdkName, String operation, String serviceName,
-      String description, String callerClassName, String callerMethodName) {
+  public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String callerMethod,
+      String responseType, String methodName, String fallbackMethod, String sdkName,
+      String operation, String serviceName, String description, String callerClassName) {
     this.url = url;
     this.httpMethod = httpMethod;
     this.parameters = parameters;
-    this.purpose = purpose;
-    this.responseType = responseType;
     this.callerMethod = callerMethod;
+    this.responseType = responseType;
+    this.methodName = methodName;
     this.fallbackMethod = fallbackMethod;
     this.sdkName = sdkName;
     this.operation = operation;
     this.serviceName = serviceName;
     this.description = description;
     this.callerClassName = callerClassName;
-    this.callerMethodName = callerMethodName;
   }
 
   public String getCallerMethodName() {
@@ -103,17 +92,23 @@ public class ExternalCallInfo {
     this.operation = operation;
   }
 
-  public ExternalCallInfo(String url, String httpMethod, String purpose2, String purpose, List<String> parameters2) {
+  public ExternalCallInfo(String url, String httpMethod, String purpose2, String methodName, List<String> parameters2) {
     this.url = url;
     this.httpMethod = httpMethod;
     this.parameters = parameters2;
-    this.purpose = purpose;
+    this.methodName = methodName;
     this.responseType = purpose2;
   }
 
-  public ExternalCallInfo(String serviceName2, String url2, String httpMethod2, String purpose2, String description2,
+  public ExternalCallInfo(String serviceName2, String url2, String httpMethod2, String methodName, String description2,
       String responseType2, String[] array) {
-    // TODO Auto-generated constructor stub
+    this.serviceName = serviceName2;
+    this.url = url2;
+    this.httpMethod = httpMethod2;
+    this.methodName = methodName;
+    this.description = description2;
+    this.responseType = responseType2;
+    this.parameters = Arrays.asList(array);
   }
 
   public String getCallerMethod() {
@@ -145,8 +140,8 @@ public class ExternalCallInfo {
     return parameters;
   }
 
-  public String getPurpose() {
-    return purpose;
+  public String getMethodName() {
+    return methodName;
   }
 
   // Setters
@@ -162,8 +157,8 @@ public class ExternalCallInfo {
     this.parameters = parameters != null ? parameters : new ArrayList<>();
   }
 
-  public void setPurpose(String purpose) {
-    this.purpose = purpose;
+  public void setMethodName(String methodName) {
+    this.methodName = methodName;
   }
 
   public String getResponseType() {

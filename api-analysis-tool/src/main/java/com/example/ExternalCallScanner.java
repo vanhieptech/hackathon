@@ -1,19 +1,18 @@
 package com.example;
 
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
+@Component
 public class ExternalCallScanner {
-  private static final Logger logger = LoggerFactory.getLogger(ExternalCallScanner.class);
   private final Map<String, String> configProperties;
   private final Map<String, Set<String>> classImports;
 
@@ -26,21 +25,23 @@ public class ExternalCallScanner {
     List<ExternalCallInfo> externalCalls = new ArrayList<>();
 
     for (ClassNode classNode : allClasses) {
-      Map<String, String> classFields = extractClassFields(classNode);
-      String baseUrl = extractBaseUrl(classNode, classFields);
-
       for (MethodNode methodNode : classNode.methods) {
-        for (AbstractInsnNode insn : methodNode.instructions) {
-          if (insn instanceof MethodInsnNode) {
-            MethodInsnNode methodInsn = (MethodInsnNode) insn;
-            if (isHttpClientMethod(methodInsn)) {
-              ExternalCallInfo callInfo = extractExternalCallInfo(classNode, methodNode, methodInsn, baseUrl,
-                  classFields);
-              if (callInfo != null) {
-                externalCalls.add(callInfo);
-              }
-            }
-          }
+        externalCalls.addAll(scanMethodForExternalCalls(classNode, methodNode));
+      }
+    }
+
+    return externalCalls;
+  }
+
+  private List<ExternalCallInfo> scanMethodForExternalCalls(ClassNode classNode, MethodNode methodNode) {
+    List<ExternalCallInfo> externalCalls = new ArrayList<>();
+
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        ExternalCallInfo externalCall = extractExternalCallInfo(classNode, methodNode, methodInsn);
+        if (externalCall != null) {
+          externalCalls.add(externalCall);
         }
       }
     }
@@ -48,171 +49,108 @@ public class ExternalCallScanner {
     return externalCalls;
   }
 
-  private Map<String, String> extractClassFields(ClassNode classNode) {
-    Map<String, String> fields = new HashMap<>();
-    for (FieldNode field : classNode.fields) {
-      if (field.value instanceof String) {
-        fields.put(field.name, (String) field.value);
+  private ExternalCallInfo extractExternalCallInfo(ClassNode classNode, MethodNode methodNode,
+      MethodInsnNode methodInsn) {
+    String owner = methodInsn.owner.replace('/', '.');
+    String method = methodInsn.name;
+
+    if (isHttpClientMethod(owner, method)) {
+      String url = extractUrlFromMethod(methodNode, methodInsn);
+      if (url == null) {
+        url = extractUrlFromConfig(classNode);
+      }
+
+      if (url != null) {
+        String httpMethod = inferHttpMethod(method);
+        return new ExternalCallInfo(url, httpMethod, new ArrayList<>(),
+            classNode.name + "." + methodNode.name, "Unknown",
+            methodNode.name, "", getClientLibrary(owner),
+            method, extractServiceName(url),
+            "External API call", classNode.name);
       }
     }
-    return fields;
+
+    return null;
   }
 
-  private String extractBaseUrl(ClassNode classNode, Map<String, String> classFields) {
-    for (FieldNode field : classNode.fields) {
-      if (field.visibleAnnotations != null) {
-        for (AnnotationNode annotation : field.visibleAnnotations) {
-          if (annotation.desc.contains("Value")) {
-            List<Object> values = annotation.values;
-            if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
-              String propertyKey = (String) values.get(1);
-              propertyKey = propertyKey.replaceAll("[\\$\\{\\}]", "");
-              return resolvePropertyValue(propertyKey);
-            }
+  private boolean isHttpClientMethod(String owner, String method) {
+    return (owner.contains("RestTemplate") && (method.startsWith("get") || method.startsWith("post")
+        || method.startsWith("put") || method.startsWith("delete"))) ||
+        (owner.contains("WebClient")
+            && (method.equals("get") || method.equals("post") || method.equals("put") || method.equals("delete")))
+        ||
+        (owner.contains("HttpClient") && method.equals("execute")) ||
+        (owner.contains("OkHttpClient") && method.equals("newCall")) ||
+        (owner.endsWith("Client") && !owner.startsWith("java.") && !owner.startsWith("javax."));
+  }
+
+  private String extractUrlFromMethod(MethodNode methodNode, MethodInsnNode methodInsn) {
+    // This is a simplified version. In a real-world scenario, you'd need to do more
+    // sophisticated
+    // data flow analysis to track the URL parameter.
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof LdcInsnNode && insn.getNext() == methodInsn) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+        if (ldcInsn.cst instanceof String) {
+          String potentialUrl = (String) ldcInsn.cst;
+          if (potentialUrl.startsWith("http://") || potentialUrl.startsWith("https://")) {
+            return potentialUrl;
           }
         }
       }
-    }
-    return classFields.get("baseUrl");
-  }
-
-  private String extractEndpoint(MethodNode methodNode, MethodInsnNode methodInsn, Map<String, String> classFields) {
-    AbstractInsnNode currentInsn = methodInsn.getPrevious();
-    int depth = 0;
-    String endpoint = null;
-
-    while (currentInsn != null && depth < 10) {
-      if (currentInsn instanceof MethodInsnNode) {
-        MethodInsnNode prevMethodInsn = (MethodInsnNode) currentInsn;
-        if (prevMethodInsn.name.equals("uri")) {
-          endpoint = extractUriArgument(prevMethodInsn, classFields);
-          break;
-        }
-      }
-      currentInsn = currentInsn.getPrevious();
-      depth++;
-    }
-
-    if (endpoint != null) {
-      logger.debug("Extracted endpoint: {}", endpoint);
-      return endpoint;
-    } else {
-      logger.warn("Could not extract endpoint for method call: {}", methodInsn.name);
-      return null;
-    }
-  }
-
-  private String extractUriArgument(MethodInsnNode uriMethodInsn, Map<String, String> classFields) {
-    AbstractInsnNode currentInsn = uriMethodInsn.getPrevious();
-    while (currentInsn != null) {
-      if (currentInsn instanceof LdcInsnNode) {
-        LdcInsnNode ldcInsn = (LdcInsnNode) currentInsn;
-        if (ldcInsn.cst instanceof String) {
-          return (String) ldcInsn.cst;
-        }
-      } else if (currentInsn instanceof FieldInsnNode) {
-        FieldInsnNode fieldInsn = (FieldInsnNode) currentInsn;
-        String fieldValue = classFields.get(fieldInsn.name);
-        if (fieldValue != null) {
-          return fieldValue;
-        }
-      }
-      currentInsn = currentInsn.getPrevious();
     }
     return null;
   }
 
-  private ExternalCallInfo extractExternalCallInfo(ClassNode classNode, MethodNode methodNode,
-      MethodInsnNode methodInsn, String baseUrl, Map<String, String> classFields) {
-    String endpoint = extractEndpoint(methodNode, methodInsn, classFields);
-    String fullUrl = "Unknown";
-    List<String> parameters = Collections.emptyList();
-
-    if (endpoint != null) {
-      fullUrl = combineUrls(baseUrl, endpoint);
-      parameters = extractParameters(endpoint);
-    }
-
-    String httpMethod = extractHttpMethod(methodInsn);
-    String serviceName = extractServiceName(classNode);
-    String purpose = extractPurpose(methodNode);
-    String description = extractDescription(methodNode);
-    String responseType = extractResponseType(methodNode, methodInsn);
-
-    return new ExternalCallInfo(serviceName, fullUrl, httpMethod, purpose, description, responseType,
-        parameters);
-  }
-
-  private String combineUrls(String baseUrl, String endpoint) {
-    if (baseUrl == null)
-      return endpoint;
-    baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-    endpoint = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
-    return baseUrl + endpoint;
-  }
-
-  private boolean isHttpClientMethod(MethodInsnNode methodInsn) {
-    return methodInsn.owner.contains("WebClient") &&
-        (methodInsn.name.equals("get") || methodInsn.name.equals("post") ||
-            methodInsn.name.equals("put") || methodInsn.name.equals("delete"));
-  }
-
-  private String extractHttpMethod(MethodInsnNode methodInsn) {
-    return methodInsn.name.toUpperCase();
-  }
-
-  private String extractServiceName(ClassNode classNode) {
-    return classNode.name.substring(classNode.name.lastIndexOf('/') + 1).replace("Client", "");
-  }
-
-  private String extractPurpose(MethodNode methodNode) {
-    return methodNode.name;
-  }
-
-  private String extractDescription(MethodNode methodNode) {
-    // This could be enhanced to extract JavaDoc comments if available
-    return "Method: " + methodNode.name;
-  }
-
-  private String extractResponseType(MethodNode methodNode, MethodInsnNode methodInsn) {
-    // Look for the bodyToMono or bodyToFlux method call
-    AbstractInsnNode currentInsn = methodInsn;
-    while (currentInsn != null) {
-      if (currentInsn instanceof MethodInsnNode) {
-        MethodInsnNode mi = (MethodInsnNode) currentInsn;
-        if (mi.name.equals("bodyToMono") || mi.name.equals("bodyToFlux")) {
-          // The class type should be the previous instruction
-          AbstractInsnNode prevInsn = mi.getPrevious();
-          if (prevInsn instanceof LdcInsnNode) {
-            LdcInsnNode ldcInsn = (LdcInsnNode) prevInsn;
-            if (ldcInsn.cst instanceof Type) {
-              return ((Type) ldcInsn.cst).getClassName();
-            }
+  private String extractUrlFromConfig(ClassNode classNode) {
+    Set<String> imports = classImports.get(classNode.name);
+    if (imports != null) {
+      for (String importStatement : imports) {
+        if (importStatement.contains("@Value")) {
+          // Extract the property name from the @Value annotation
+          Pattern pattern = Pattern.compile("\\$\\{(.+?)\\}");
+          Matcher matcher = pattern.matcher(importStatement);
+          if (matcher.find()) {
+            String propertyName = matcher.group(1);
+            return configProperties.get(propertyName);
           }
-          break;
         }
       }
-      currentInsn = currentInsn.getNext();
     }
-    // If we couldn't find it, fall back to the method return type
-    return Type.getReturnType(methodNode.desc).getClassName();
+    return null;
   }
 
-  private List<String> extractParameters(String endpoint) {
-    if (endpoint == null) {
-      return Collections.emptyList();
-    }
-    List<String> parameters = new ArrayList<>();
-    Pattern pattern = Pattern.compile("\\{([^}]+)\\}");
-    Matcher matcher = pattern.matcher(endpoint);
-    while (matcher.find()) {
-      parameters.add(matcher.group(1));
-    }
-    return parameters;
+  private String inferHttpMethod(String methodName) {
+    if (methodName.startsWith("get"))
+      return "GET";
+    if (methodName.startsWith("post"))
+      return "POST";
+    if (methodName.startsWith("put"))
+      return "PUT";
+    if (methodName.startsWith("delete"))
+      return "DELETE";
+    return "UNKNOWN";
   }
 
-  private String resolvePropertyValue(String key) {
-    String value = configProperties.get(key);
-    return value != null ? value : "${" + key + "}";
+  private String getClientLibrary(String owner) {
+    if (owner.contains("RestTemplate") || owner.contains("WebClient"))
+      return "Spring";
+    if (owner.contains("HttpClient"))
+      return "Apache HttpClient";
+    if (owner.contains("OkHttpClient"))
+      return "OkHttp";
+    if (owner.endsWith("Client"))
+      return "Feign";
+    return "Unknown";
+  }
+
+  private String extractServiceName(String url) {
+    try {
+      String host = new java.net.URL(url).getHost();
+      String[] parts = host.split("\\.");
+      return parts[parts.length - 2];
+    } catch (Exception e) {
+      return "Unknown";
+    }
   }
 }

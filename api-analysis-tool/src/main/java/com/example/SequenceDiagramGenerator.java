@@ -55,13 +55,14 @@ public class SequenceDiagramGenerator {
     List<ExternalCallInfo> externalCalls = findExternalCalls(allClasses);
 
     mapImplementationsToInterfaces(allClasses);
+    Map<String, Set<String>> serviceDependencies = scanServiceDependencies(allClasses);
     findWebClientHostNames(allClasses);
     mapMethodAnnotations(allClasses);
 
     appendParticipants(sb, allClasses, externalCalls);
 
     for (APIInfo api : exposedApis) {
-      generateSequenceForAPI(sb, api, allClasses, externalCalls);
+      generateSequenceForAPI(sb, api, allClasses, externalCalls, serviceDependencies);
     }
 
     sb.append("@enduml");
@@ -80,9 +81,13 @@ public class SequenceDiagramGenerator {
 
   private void mapImplementationsToInterfaces(List<ClassNode> allClasses) {
     for (ClassNode classNode : allClasses) {
-      if (classNode.interfaces != null && !classNode.interfaces.isEmpty()) {
+      if (!classNode.interfaces.isEmpty()) {
         for (String interfaceName : classNode.interfaces) {
-          implToInterfaceMap.put(classNode.name, interfaceName);
+          String simpleInterfaceName = getSimpleClassName(interfaceName);
+          String simpleClassName = getSimpleClassName(classNode.name);
+          if (simpleClassName.contains(simpleInterfaceName)) {
+            implToInterfaceMap.put(simpleClassName, simpleInterfaceName);
+          }
         }
       }
     }
@@ -225,7 +230,7 @@ public class SequenceDiagramGenerator {
   }
 
   private void generateSequenceForAPI(StringBuilder sb, APIInfo api, List<ClassNode> allClasses,
-      List<ExternalCallInfo> externalCalls) {
+      List<ExternalCallInfo> externalCalls, Map<String, Set<String>> serviceDependencies) {
     sb.append("== ").append(api.getApiName()).append(" ==\n");
     String controllerName = getSimpleClassName(api.getClassName());
     sb.append("\"Client\" -> \"").append(controllerName).append("\" : ")
@@ -238,7 +243,7 @@ public class SequenceDiagramGenerator {
       MethodNode method = findMethodByName(controllerClass, api.getMethodName());
       if (method != null) {
         processedMethods.clear();
-        processMethodFlow(sb, controllerClass, method, allClasses, 1, externalCalls);
+        processMethodFlow(sb, controllerClass, method, allClasses, 1, externalCalls, serviceDependencies);
       }
     }
 
@@ -246,7 +251,8 @@ public class SequenceDiagramGenerator {
   }
 
   private void processMethodFlow(StringBuilder sb, ClassNode classNode, MethodNode methodNode,
-      List<ClassNode> allClasses, int depth, List<ExternalCallInfo> externalCalls) {
+      List<ClassNode> allClasses, int depth, List<ExternalCallInfo> externalCalls,
+      Map<String, Set<String>> serviceDependencies) {
     if (depth > 10 || processedMethods.contains(classNode.name + "." + methodNode.name + methodNode.desc)) {
       return;
     }
@@ -255,14 +261,20 @@ public class SequenceDiagramGenerator {
     String callerName = getSimpleClassName(classNode.name);
     handleAspects(sb, classNode, methodNode, callerName);
     handleQuarkusAnnotations(sb, classNode, methodNode);
-
+    // Add service dependencies
+    Set<String> dependencies = serviceDependencies.get(callerName);
+    if (dependencies != null) {
+      for (String dependency : dependencies) {
+        sb.append("\"").append(callerName).append("\" -> \"").append(dependency).append("\" : uses\n");
+      }
+    }
     for (AbstractInsnNode insn : methodNode.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
         String calleeName = getSimpleClassName(methodInsn.owner);
 
-        if (isServiceMethod(methodInsn)) {
-          processServiceCall(sb, methodInsn, allClasses, depth, callerName, externalCalls);
+        if (isServiceMethod(methodInsn, allClasses)) {
+          processServiceCall(sb, methodInsn, allClasses, depth, callerName, externalCalls, serviceDependencies);
         } else if (isRepositoryMethod(methodInsn)) {
           processRepositoryCall(sb, methodInsn, callerName);
         } else if (isExternalCall(methodInsn)) {
@@ -299,7 +311,7 @@ public class SequenceDiagramGenerator {
   }
 
   private void processServiceCall(StringBuilder sb, MethodInsnNode methodInsn, List<ClassNode> allClasses, int depth,
-      String callerName, List<ExternalCallInfo> externalCalls) {
+      String callerName, List<ExternalCallInfo> externalCalls, Map<String, Set<String>> serviceDependencies) {
     String interfaceName = implToInterfaceMap.getOrDefault(methodInsn.owner, methodInsn.owner);
     String calleeName = getSimpleClassName(interfaceName);
 
@@ -311,7 +323,7 @@ public class SequenceDiagramGenerator {
     if (calleeClass != null) {
       MethodNode calleeMethod = findMethodByName(calleeClass, methodInsn.name);
       if (calleeMethod != null) {
-        processMethodFlow(sb, calleeClass, calleeMethod, allClasses, depth + 1, externalCalls);
+        processMethodFlow(sb, calleeClass, calleeMethod, allClasses, depth + 1, externalCalls, serviceDependencies);
       }
     }
 
@@ -334,15 +346,29 @@ public class SequenceDiagramGenerator {
       String callerName) {
     ExternalCallInfo externalCall = findMatchingExternalCall(externalCalls, callerName, methodInsn.name);
     if (externalCall != null) {
-      String externalServiceName = getSimpleClassName(externalCall.getServiceName());
+      String externalServiceName = getSimpleClassName(externalCall.getCallerClassName());
       sb.append("\"").append(callerName).append("\" -> \"").append(externalServiceName).append("\" : ")
           .append(externalCall.getHttpMethod()).append(" ").append(externalCall.getUrl()).append("\n");
       sb.append("\"").append(externalServiceName).append("\" --> \"").append(callerName).append("\" : response\n");
     }
   }
 
-  private boolean isServiceMethod(MethodInsnNode methodInsn) {
-    return methodInsn.owner.endsWith("Service") || methodInsn.owner.endsWith("ServiceImpl");
+  private boolean isServiceMethod(MethodInsnNode methodInsn, List<ClassNode> allClasses) {
+    String ownerName = methodInsn.owner.replace('/', '.');
+
+    // Check if the owner class name ends with "Service" or "ServiceImpl"
+    if (ownerName.endsWith("Service") || ownerName.endsWith("ServiceImpl")) {
+      return true;
+    }
+
+    // Find the class node for the owner
+    ClassNode ownerClass = findClassByName(allClasses, ownerName);
+    if (ownerClass != null) {
+      // Check for @Service or @Component annotations on the class
+      return hasAnnotation(ownerClass, "Service") || hasAnnotation(ownerClass, "Component");
+    }
+
+    return false;
   }
 
   private boolean isRepositoryMethod(MethodInsnNode methodInsn) {
@@ -549,7 +575,11 @@ public class SequenceDiagramGenerator {
 
     // Extract the class name after the last dot or slash
     int lastSeparatorIndex = Math.max(fullClassName.lastIndexOf('.'), fullClassName.lastIndexOf('/'));
-    return lastSeparatorIndex != -1 ? fullClassName.substring(lastSeparatorIndex + 1) : fullClassName;
+    String simpleName = lastSeparatorIndex != -1 ? fullClassName.substring(lastSeparatorIndex + 1) : fullClassName;
+
+    // Check if this class is an implementation and return the interface name if it
+    // exists
+    return implToInterfaceMap.getOrDefault(simpleName, simpleName);
   }
 
   private void appendParticipants(StringBuilder sb, List<ClassNode> allClasses, List<ExternalCallInfo> externalCalls) {
@@ -581,13 +611,52 @@ public class SequenceDiagramGenerator {
     sb.append("\n");
   }
 
+  private Map<String, Set<String>> scanServiceDependencies(List<ClassNode> allClasses) {
+    Map<String, Set<String>> dependencies = new HashMap<>();
+
+    for (ClassNode classNode : allClasses) {
+      if (isService(classNode)) {
+        String serviceName = getSimpleClassName(classNode.name);
+        Set<String> classDependencies = new HashSet<>();
+
+        // Check constructor dependencies
+        for (MethodNode methodNode : classNode.methods) {
+          if (methodNode.name.equals("<init>")) {
+            Type[] argumentTypes = Type.getArgumentTypes(methodNode.desc);
+            for (Type argType : argumentTypes) {
+              String dependencyName = getSimpleClassName(argType.getClassName());
+              if (isService(findClassByName(allClasses, argType.getClassName()))) {
+                classDependencies.add(dependencyName);
+              }
+            }
+          }
+        }
+
+        // Check field dependencies
+        for (FieldNode fieldNode : classNode.fields) {
+          String dependencyName = getSimpleClassName(Type.getType(fieldNode.desc).getClassName());
+          if (isService(findClassByName(allClasses, Type.getType(fieldNode.desc).getClassName()))) {
+            classDependencies.add(dependencyName);
+          }
+        }
+
+        if (!classDependencies.isEmpty()) {
+          dependencies.put(serviceName, classDependencies);
+        }
+      }
+    }
+
+    return dependencies;
+  }
+
   private boolean isController(ClassNode classNode) {
     return hasAnnotation(classNode, "RestController") || hasAnnotation(classNode, "Controller");
   }
 
   private boolean isService(ClassNode classNode) {
-    return hasAnnotation(classNode, "Service") || classNode.name.endsWith("Service")
-        || classNode.name.endsWith("ServiceImpl");
+    return classNode != null && (hasAnnotation(classNode, "Service")
+        || classNode.name.endsWith("Service")
+        || classNode.name.endsWith("ServiceImpl"));
   }
 
   private boolean isRepository(ClassNode classNode) {

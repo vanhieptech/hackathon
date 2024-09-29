@@ -60,7 +60,7 @@ public class CSVGenerator {
       csvPrinter.printRecord(
           "External",
           externalCall.getServiceName(),
-          externalCall.getPurpose(),
+          externalCall.getMethodName(),
           externalCall.getHttpMethod(),
           externalCall.getUrl() != null ? externalCall.getUrl() : "Unknown",
           externalCall.getDescription(),
