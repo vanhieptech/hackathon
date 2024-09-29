@@ -1,36 +1,114 @@
 package com.example;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ExternalCallInfo {
   private String url;
   private String httpMethod;
-  private String[] parameters;
+  private List<String> parameters = new ArrayList<>();
   private String purpose; // This should be in the format "ClientClassName.methodName"
   private String responseType;
   private String callerMethod;
+  private String fallbackMethod;
+  private String sdkName;
+  private String operation;
+  private String serviceName;
+  private String description;
 
-  public ExternalCallInfo(String url, String httpMethod, String[] parameters, String purpose) {
+  public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String purpose) {
     this.url = url;
     this.httpMethod = httpMethod;
     this.parameters = parameters;
     this.purpose = purpose;
   }
 
+  public ExternalCallInfo(String serviceName, String url, String httpMethod, String purpose, String description,
+      String responseType, List<String> parameters) {
+    this.serviceName = serviceName;
+    this.url = url;
+    this.httpMethod = httpMethod;
+    this.purpose = purpose;
+    this.description = description;
+    this.responseType = responseType;
+    this.parameters = parameters;
+  }
+
+  public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String purpose, String responseType,
+      String callerMethod, String fallbackMethod, String sdkName, String operation, String serviceName,
+      String description) {
+    this.url = url;
+    this.httpMethod = httpMethod;
+    this.parameters = parameters;
+    this.purpose = purpose;
+    this.responseType = responseType;
+    this.callerMethod = callerMethod;
+    this.fallbackMethod = fallbackMethod;
+    this.sdkName = sdkName;
+    this.operation = operation;
+    this.serviceName = serviceName;
+    this.description = description;
+  }
+
+  public String getServiceName() {
+    return serviceName;
+  }
+
+  public void setServiceName(String serviceName) {
+    this.serviceName = serviceName;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public void setDescription(String description) {
+    this.description = description;
+  }
+
   public void setCallerMethod(String callerMethod) {
     this.callerMethod = callerMethod;
+  }
+
+  public void setFallbackMethod(String fallbackMethod) {
+    this.fallbackMethod = fallbackMethod;
+  }
+
+  public void setSdkName(String sdkName) {
+    this.sdkName = sdkName;
+  }
+
+  public void setOperation(String operation) {
+    this.operation = operation;
   }
 
   public ExternalCallInfo(String url, String httpMethod, String purpose2, String purpose, List<String> parameters2) {
     this.url = url;
     this.httpMethod = httpMethod;
-    this.parameters = parameters2.toArray(new String[0]);
+    this.parameters = parameters2;
     this.purpose = purpose;
     this.responseType = purpose2;
   }
 
+  public ExternalCallInfo(String serviceName2, String url2, String httpMethod2, String purpose2, String description2,
+      String responseType2, String[] array) {
+    // TODO Auto-generated constructor stub
+  }
+
   public String getCallerMethod() {
     return callerMethod;
+  }
+
+  public String getFallbackMethod() {
+    return fallbackMethod;
+  }
+
+  public String getSdkName() {
+    return sdkName;
+  }
+
+  public String getOperation() {
+    return operation;
   }
 
   // Getters
@@ -42,7 +120,7 @@ public class ExternalCallInfo {
     return httpMethod;
   }
 
-  public String[] getParameters() {
+  public List<String> getParameters() {
     return parameters;
   }
 
@@ -59,8 +137,8 @@ public class ExternalCallInfo {
     this.httpMethod = httpMethod;
   }
 
-  public void setParameters(String[] parameters) {
-    this.parameters = parameters;
+  public void setParameters(List<String> parameters) {
+    this.parameters = parameters != null ? parameters : new ArrayList<>();
   }
 
   public void setPurpose(String purpose) {

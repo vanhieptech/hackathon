@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.yaml.snakeyaml.Yaml;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -37,12 +38,10 @@ public class APIAnalysisTool {
   private final ComponentDiagramGenerator componentDiagramGenerator;
   private final StateDiagramGenerator stateDiagramGenerator;
   private final ActivityDiagramGenerator activityDiagramGenerator;
-  private final APIInventoryExtractor apiInventoryExtractor;
   private final ServiceInventoryExtractor serviceInventoryExtractor;
   private final DesignComparator designComparator;
   private final CSVGenerator csvGenerator;
   private final DocumentationGenerator documentationGenerator;
-  private final ExternalCallScanner externalCallScanner;
   private final DatabaseChangelogScanner databaseChangelogScanner;
 
   private String latestSequenceDiagram;
@@ -66,34 +65,39 @@ public class APIAnalysisTool {
     this.componentDiagramGenerator = new ComponentDiagramGenerator();
     this.stateDiagramGenerator = new StateDiagramGenerator();
     this.activityDiagramGenerator = new ActivityDiagramGenerator();
-    this.apiInventoryExtractor = new APIInventoryExtractor();
     this.serviceInventoryExtractor = new ServiceInventoryExtractor();
     this.designComparator = new DesignComparator();
     this.csvGenerator = new CSVGenerator();
     this.documentationGenerator = new DocumentationGenerator();
-    this.externalCallScanner = new ExternalCallScanner();
+    // this.externalCallScanner = new ExternalCallScanner();
     this.databaseChangelogScanner = new DatabaseChangelogScanner();
   }
 
   public AnalysisResult analyzeProject(String projectPath, String existingDesignPath, String projectName)
       throws IOException {
     logger.info("Starting project analysis for: {}", projectPath);
+    // Load configuration properties from the project
+    Map<String, String> configProperties = loadProjectConfigProperties(projectPath);
+
     List<ClassNode> allClasses = parseJavaClasses(projectPath);
 
     SourceCodeAnalyzer sourceCodeAnalyzer = new SourceCodeAnalyzer();
     Map<String, ClassInfo> sourceCodeInfo = sourceCodeAnalyzer.analyzeSourceCode(projectPath);
+    Map<String, Set<String>> classImports = sourceCodeAnalyzer.extractClassImports(sourceCodeInfo);
 
-    DependencyAnalyzer dependencyAnalyzer = new DependencyAnalyzer();
-    List<ExternalCallInfo> externalCalls = dependencyAnalyzer.analyzeExternalCalls(allClasses);
+    ExternalCallScanner scanner = new ExternalCallScanner(configProperties, classImports);
+    List<ExternalCallInfo> externalCalls = scanner.findExternalCalls(allClasses);
 
-    latestSequenceDiagram = sequenceDiagramGenerator.generateSequenceDiagram(allClasses, sourceCodeInfo);
+    latestSequenceDiagram = sequenceDiagramGenerator.generateSequenceDiagram(allClasses, sourceCodeInfo,
+        configProperties, projectName);
     latestClassDiagram = classDiagramGenerator.generateClassDiagram(allClasses, sourceCodeInfo);
     latestComponentDiagram = componentDiagramGenerator.generateComponentDiagram(allClasses, sourceCodeInfo);
     latestStateDiagram = stateDiagramGenerator.generateStateDiagram(allClasses);
     latestActivityDiagram = activityDiagramGenerator.generateActivityDiagram(allClasses);
 
+    APIInventoryExtractor apiInventoryExtractor = new APIInventoryExtractor(configProperties, projectName);
     latestExposedAPIInventory = apiInventoryExtractor.extractExposedAPIs(allClasses);
-    latestUtilizedServiceInventory = serviceInventoryExtractor.extractUtilizedServices(allClasses);
+    latestUtilizedServiceInventory = serviceInventoryExtractor.extractUtilizedServices(allClasses, configProperties);
     latestExternalCalls = externalCalls;
 
     String existingDiagram = readExistingDesign(existingDesignPath);
@@ -114,6 +118,93 @@ public class APIAnalysisTool {
         latestStateDiagram, latestActivityDiagram, latestComparisonResult, latestExposedAPIInventory,
         latestUtilizedServiceInventory, latestExternalCalls, latestCsvPath, latestDocumentationPath,
         latestHtmlDiffPath, latestDatabaseChanges);
+  }
+
+  private Map<String, String> loadProjectConfigProperties(String projectPath) throws IOException {
+    logger.info("Loading configuration properties from project: {}", projectPath);
+    Map<String, String> configProperties = new HashMap<>();
+
+    if (Files.isDirectory(Paths.get(projectPath))) {
+      loadFromDirectory(projectPath, configProperties);
+    } else if (projectPath.endsWith(".jar")) {
+      loadFromJar(projectPath, configProperties);
+    } else if (projectPath.endsWith(".zip")) {
+      loadFromZip(projectPath, configProperties);
+    } else {
+      logger.warn("Unsupported project type: {}", projectPath);
+    }
+
+    logger.info("Loaded {} configuration properties", configProperties.size());
+    return configProperties;
+  }
+
+  private void loadFromDirectory(String projectPath, Map<String, String> configProperties) throws IOException {
+    Path propertiesPath = Paths.get(projectPath, "src", "main", "resources", "application.properties");
+    Path yamlPath = Paths.get(projectPath, "src", "main", "resources", "application.yml");
+
+    if (Files.exists(propertiesPath)) {
+      loadProperties(Files.newInputStream(propertiesPath), configProperties);
+    }
+    if (Files.exists(yamlPath)) {
+      loadYaml(Files.newInputStream(yamlPath), configProperties);
+    }
+  }
+
+  private void loadFromJar(String jarPath, Map<String, String> configProperties) throws IOException {
+    try (JarFile jarFile = new JarFile(jarPath)) {
+      JarEntry propertiesEntry = jarFile.getJarEntry("BOOT-INF/classes/application.properties");
+      if (propertiesEntry != null) {
+        loadProperties(jarFile.getInputStream(propertiesEntry), configProperties);
+      }
+
+      JarEntry yamlEntry = jarFile.getJarEntry("BOOT-INF/classes/application.yml");
+      if (yamlEntry != null) {
+        loadYaml(jarFile.getInputStream(yamlEntry), configProperties);
+      }
+
+      JarEntry bootStrapYamlEntry = jarFile.getJarEntry("BOOT-INF/classes/bootstrap.yml");
+      if (bootStrapYamlEntry != null) {
+        loadYaml(jarFile.getInputStream(bootStrapYamlEntry), configProperties);
+      }
+    }
+  }
+
+  private void loadFromZip(String zipPath, Map<String, String> configProperties) throws IOException {
+    try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipPath))) {
+      ZipEntry entry;
+      while ((entry = zis.getNextEntry()) != null) {
+        if (entry.getName().endsWith("application.properties")) {
+          loadProperties(zis, configProperties);
+        } else if (entry.getName().endsWith("application.yml")) {
+          loadYaml(zis, configProperties);
+        }
+      }
+    }
+  }
+
+  private void loadProperties(InputStream inputStream, Map<String, String> configProperties) throws IOException {
+    Properties props = new Properties();
+    props.load(inputStream);
+    props.forEach((key, value) -> configProperties.put(key.toString(), value.toString()));
+  }
+
+  private void loadYaml(InputStream inputStream, Map<String, String> configProperties) {
+    Yaml yaml = new Yaml();
+    Map<String, Object> yamlMap = yaml.load(inputStream);
+    flattenYamlMap(yamlMap, "", configProperties);
+  }
+
+  private void flattenYamlMap(Map<String, Object> yamlMap, String prefix, Map<String, String> result) {
+    for (Map.Entry<String, Object> entry : yamlMap.entrySet()) {
+      String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+      if (entry.getValue() instanceof Map) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> nestedMap = (Map<String, Object>) entry.getValue();
+        flattenYamlMap(nestedMap, key, result);
+      } else {
+        result.put(key, entry.getValue().toString());
+      }
+    }
   }
 
   private void saveDiagrams(String projectName) {

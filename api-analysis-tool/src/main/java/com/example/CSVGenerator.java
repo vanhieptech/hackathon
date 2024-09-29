@@ -1,5 +1,7 @@
 package com.example;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,60 +38,49 @@ public class CSVGenerator {
 
   private void generateDefaultFormat(FileWriter writer, List<APIInfo> apiInventory,
       List<ExternalCallInfo> externalCalls) throws IOException {
-    writer.append("Type,HTTP Method,Path,Method Name,Return Type,Parameters,External URL\n");
+    CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
+        .withHeader("Type", "Service Name", "API Name", "HTTP Method", "API Endpoint", "Description", "Version",
+            "Service Dependency", "Return Type", "Parameters"));
 
     for (APIInfo api : apiInventory) {
-      writer.append("Internal,")
-          .append(api.getHttpMethod() != null ? api.getHttpMethod() : "N/A").append(",")
-          .append(api.getPath() != null ? api.getPath() : "N/A").append(",")
-          .append(api.getMethodName()).append(",")
-          .append(api.getReturnType()).append(",")
-          .append(String.join(";", api.getParameters())).append(",")
-          .append("N/A")
-          .append("\n");
+      csvPrinter.printRecord(
+          "Internal",
+          api.getServiceName(),
+          api.getApiName(),
+          api.getHttpMethod(),
+          api.getApiEndpoint(),
+          api.getDescription(),
+          api.getVersion(),
+          api.getServiceDependencies() != null ? String.join(";", api.getServiceDependencies()) : "",
+          api.getReturnType(),
+          formatParameters(api.getParameters()));
     }
 
     for (ExternalCallInfo externalCall : externalCalls) {
-      writer.append("External,")
-          .append(externalCall.getHttpMethod()).append(",")
-          .append("N/A,")
-          .append(externalCall.getPurpose()).append(",")
-          .append(externalCall.getResponseType() != null ? externalCall.getResponseType() : "N/A").append(",")
-          .append(String.join(";", externalCall.getParameters())).append(",")
-          .append(externalCall.getUrl())
-          .append("\n");
+      csvPrinter.printRecord(
+          "External",
+          externalCall.getServiceName(),
+          externalCall.getPurpose(),
+          externalCall.getHttpMethod(),
+          externalCall.getUrl() != null ? externalCall.getUrl() : "Unknown",
+          externalCall.getDescription(),
+          "N/A",
+          "N/A",
+          externalCall.getResponseType(),
+          String.join(";", externalCall.getParameters()));
     }
+
+    csvPrinter.flush();
   }
 
-  public void generateExposedAPIsCSV(List<APIInfo> apiInventory, String csvPath) throws IOException {
-    try (FileWriter writer = new FileWriter(csvPath)) {
-      writer.append("Class Name,Method Name,HTTP Method,Path,Return Type,Parameters\n");
-
-      for (APIInfo api : apiInventory) {
-        writer.append(api.getClass().getName()).append(",")
-            .append(api.getMethodName()).append(",")
-            .append(api.getHttpMethod()).append(",")
-            .append(api.getPath()).append(",")
-            .append(api.getReturnType()).append(",")
-            .append(String.join(";", api.getParameters()))
-            .append("\n");
-      }
+  private String formatParameters(List<APIInfo.ParameterInfo> parameters) {
+    if (parameters == null) {
+      return "";
     }
-  }
-
-  public void generateExternalAPIsCSV(List<ExternalCallInfo> externalCalls, String csvPath) throws IOException {
-    try (FileWriter writer = new FileWriter(csvPath)) {
-      writer.append("HTTP Method,URL,Purpose,Response Type,Parameters\n");
-
-      for (ExternalCallInfo externalCall : externalCalls) {
-        writer.append(externalCall.getHttpMethod()).append(",")
-            .append(externalCall.getUrl()).append(",")
-            .append(externalCall.getPurpose()).append(",")
-            .append(externalCall.getResponseType() != null ? externalCall.getResponseType() : "N/A").append(",")
-            .append(String.join(";", externalCall.getParameters()))
-            .append("\n");
-      }
-    }
+    return parameters.stream()
+        .map(param -> param.type + " " + param.name + " ("
+            + (param.annotationType != null ? param.annotationType : "N/A") + ")")
+        .collect(java.util.stream.Collectors.joining(", "));
   }
 
   private void generateDynatraceFormat(FileWriter writer, List<APIInfo> apiInventory,

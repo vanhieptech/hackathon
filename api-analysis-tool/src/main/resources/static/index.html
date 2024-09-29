@@ -256,15 +256,15 @@
           </thead>
           <tbody>
             <tr v-for="call in result.externalCalls" :key="call.className + call.methodName + call.externalCall">
-              <td>{{ call.className }}</td>
-              <td>{{ call.methodName }}</td>
-              <td>{{ call.externalCall }}</td>
+              <td>{{ call.serviceName }}</td>
+              <td>{{ call.purpose }}</td>
+              <td>{{ call.url }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div class="mt-4">
+      <div class="mt-4 mb-5">
         <h3>Downloads</h3>
         <button @click="downloadFile('csv')" class="btn btn-secondary">Download API Inventory (CSV)</button>
         <button @click="downloadFile('documentation')" class="btn btn-secondary">Download Documentation (MD)</button>

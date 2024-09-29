@@ -1,66 +1,43 @@
 package com.example;
 
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class ExternalCallScanner {
-
   private static final Logger logger = LoggerFactory.getLogger(ExternalCallScanner.class);
+  private final Map<String, String> configProperties;
+  private final Map<String, Set<String>> classImports;
 
-  private static final Set<String> HTTP_CLIENT_CLASSES = new HashSet<>(Arrays.asList(
-      "java/net/HttpURLConnection",
-      "org/apache/http/client/HttpClient",
-      "okhttp3/OkHttpClient",
-      "org/springframework/web/client/RestTemplate",
-      "org/springframework/web/reactive/function/client/WebClient",
-      "com/squareup/okhttp/OkHttpClient",
-      "retrofit2/Retrofit",
-      "io/micronaut/http/client/HttpClient",
-      "javax/ws/rs/client/Client",
-      "org/asynchttpclient/AsyncHttpClient",
-      "com/github/kevinsawicki/http/HttpRequest",
-      "kong/unirest/Unirest",
-      "io/vertx/core/http/HttpClient",
-      "com/mashape/unirest/http/Unirest",
-      "org/eclipse/jetty/client/HttpClient",
-      "com/ning/http/client/AsyncHttpClient",
-      "org/glassfish/jersey/client/JerseyClient",
-      "feign/Feign"));
+  public ExternalCallScanner(Map<String, String> configProperties, Map<String, Set<String>> classImports) {
+    this.configProperties = configProperties;
+    this.classImports = classImports;
+  }
 
   public List<ExternalCallInfo> findExternalCalls(List<ClassNode> allClasses) {
-    logger.info("Starting to scan for external calls in {} classes", allClasses.size());
     List<ExternalCallInfo> externalCalls = new ArrayList<>();
 
     for (ClassNode classNode : allClasses) {
-      logger.info("Scanning class: {}", classNode.name);
-      for (MethodNode method : classNode.methods) {
-        logger.info("Scanning method: {}.{}", classNode.name, method.name);
-        for (AbstractInsnNode insn : method.instructions) {
+      Map<String, String> classFields = extractClassFields(classNode);
+      String baseUrl = extractBaseUrl(classNode, classFields);
+
+      for (MethodNode methodNode : classNode.methods) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
           if (insn instanceof MethodInsnNode) {
             MethodInsnNode methodInsn = (MethodInsnNode) insn;
-            String owner = methodInsn.owner.replace('/', '.');
-            logger.trace("Examining method call: {}.{}", owner, methodInsn.name);
-
-            if (HTTP_CLIENT_CLASSES.contains(owner) || isWebClientCall(owner, methodInsn.name)) {
-              logger.info("Found potential external call in {}.{}", classNode.name, method.name);
-              String url = extractUrlFromHttpCall(method, methodInsn);
-              String httpMethod = extractHttpMethodFromCall(methodInsn);
-
-              if (url != null && httpMethod != null) {
-                List<String> parameters = extractParameters(methodInsn);
-                String purpose = classNode.name + "." + method.name;
-                String responseType = getReturnType(methodInsn.desc);
-                ExternalCallInfo callInfo = new ExternalCallInfo(url, httpMethod, purpose, responseType, parameters);
+            if (isHttpClientMethod(methodInsn)) {
+              ExternalCallInfo callInfo = extractExternalCallInfo(classNode, methodNode, methodInsn, baseUrl,
+                  classFields);
+              if (callInfo != null) {
                 externalCalls.add(callInfo);
-                logger.info("Added external call: {}", callInfo);
-              } else {
-                logger.warn("Could not extract URL or HTTP method for call in {}.{}", classNode.name, method.name);
               }
             }
           }
@@ -68,152 +45,174 @@ public class ExternalCallScanner {
       }
     }
 
-    logger.info("Finished scanning. Found {} external calls", externalCalls.size());
     return externalCalls;
   }
 
-  private List<String> extractParameters(MethodInsnNode methodInsn) {
-    List<String> parameters = new ArrayList<>();
-    Type[] argumentTypes = Type.getArgumentTypes(methodInsn.desc);
-    for (Type argType : argumentTypes) {
-      parameters.add(argType.getClassName());
+  private Map<String, String> extractClassFields(ClassNode classNode) {
+    Map<String, String> fields = new HashMap<>();
+    for (FieldNode field : classNode.fields) {
+      if (field.value instanceof String) {
+        fields.put(field.name, (String) field.value);
+      }
     }
-    logger.info("Extracted parameters: {}", parameters);
+    return fields;
+  }
+
+  private String extractBaseUrl(ClassNode classNode, Map<String, String> classFields) {
+    for (FieldNode field : classNode.fields) {
+      if (field.visibleAnnotations != null) {
+        for (AnnotationNode annotation : field.visibleAnnotations) {
+          if (annotation.desc.contains("Value")) {
+            List<Object> values = annotation.values;
+            if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
+              String propertyKey = (String) values.get(1);
+              propertyKey = propertyKey.replaceAll("[\\$\\{\\}]", "");
+              return resolvePropertyValue(propertyKey);
+            }
+          }
+        }
+      }
+    }
+    return classFields.get("baseUrl");
+  }
+
+  private String extractEndpoint(MethodNode methodNode, MethodInsnNode methodInsn, Map<String, String> classFields) {
+    AbstractInsnNode currentInsn = methodInsn.getPrevious();
+    int depth = 0;
+    String endpoint = null;
+
+    while (currentInsn != null && depth < 10) {
+      if (currentInsn instanceof MethodInsnNode) {
+        MethodInsnNode prevMethodInsn = (MethodInsnNode) currentInsn;
+        if (prevMethodInsn.name.equals("uri")) {
+          endpoint = extractUriArgument(prevMethodInsn, classFields);
+          break;
+        }
+      }
+      currentInsn = currentInsn.getPrevious();
+      depth++;
+    }
+
+    if (endpoint != null) {
+      logger.debug("Extracted endpoint: {}", endpoint);
+      return endpoint;
+    } else {
+      logger.warn("Could not extract endpoint for method call: {}", methodInsn.name);
+      return null;
+    }
+  }
+
+  private String extractUriArgument(MethodInsnNode uriMethodInsn, Map<String, String> classFields) {
+    AbstractInsnNode currentInsn = uriMethodInsn.getPrevious();
+    while (currentInsn != null) {
+      if (currentInsn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) currentInsn;
+        if (ldcInsn.cst instanceof String) {
+          return (String) ldcInsn.cst;
+        }
+      } else if (currentInsn instanceof FieldInsnNode) {
+        FieldInsnNode fieldInsn = (FieldInsnNode) currentInsn;
+        String fieldValue = classFields.get(fieldInsn.name);
+        if (fieldValue != null) {
+          return fieldValue;
+        }
+      }
+      currentInsn = currentInsn.getPrevious();
+    }
+    return null;
+  }
+
+  private ExternalCallInfo extractExternalCallInfo(ClassNode classNode, MethodNode methodNode,
+      MethodInsnNode methodInsn, String baseUrl, Map<String, String> classFields) {
+    String endpoint = extractEndpoint(methodNode, methodInsn, classFields);
+    String fullUrl = "Unknown";
+    List<String> parameters = Collections.emptyList();
+
+    if (endpoint != null) {
+      fullUrl = combineUrls(baseUrl, endpoint);
+      parameters = extractParameters(endpoint);
+    }
+
+    String httpMethod = extractHttpMethod(methodInsn);
+    String serviceName = extractServiceName(classNode);
+    String purpose = extractPurpose(methodNode);
+    String description = extractDescription(methodNode);
+    String responseType = extractResponseType(methodNode, methodInsn);
+
+    return new ExternalCallInfo(serviceName, fullUrl, httpMethod, purpose, description, responseType,
+        parameters);
+  }
+
+  private String combineUrls(String baseUrl, String endpoint) {
+    if (baseUrl == null)
+      return endpoint;
+    baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+    endpoint = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
+    return baseUrl + endpoint;
+  }
+
+  private boolean isHttpClientMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("WebClient") &&
+        (methodInsn.name.equals("get") || methodInsn.name.equals("post") ||
+            methodInsn.name.equals("put") || methodInsn.name.equals("delete"));
+  }
+
+  private String extractHttpMethod(MethodInsnNode methodInsn) {
+    return methodInsn.name.toUpperCase();
+  }
+
+  private String extractServiceName(ClassNode classNode) {
+    return classNode.name.substring(classNode.name.lastIndexOf('/') + 1).replace("Client", "");
+  }
+
+  private String extractPurpose(MethodNode methodNode) {
+    return methodNode.name;
+  }
+
+  private String extractDescription(MethodNode methodNode) {
+    // This could be enhanced to extract JavaDoc comments if available
+    return "Method: " + methodNode.name;
+  }
+
+  private String extractResponseType(MethodNode methodNode, MethodInsnNode methodInsn) {
+    // Look for the bodyToMono or bodyToFlux method call
+    AbstractInsnNode currentInsn = methodInsn;
+    while (currentInsn != null) {
+      if (currentInsn instanceof MethodInsnNode) {
+        MethodInsnNode mi = (MethodInsnNode) currentInsn;
+        if (mi.name.equals("bodyToMono") || mi.name.equals("bodyToFlux")) {
+          // The class type should be the previous instruction
+          AbstractInsnNode prevInsn = mi.getPrevious();
+          if (prevInsn instanceof LdcInsnNode) {
+            LdcInsnNode ldcInsn = (LdcInsnNode) prevInsn;
+            if (ldcInsn.cst instanceof Type) {
+              return ((Type) ldcInsn.cst).getClassName();
+            }
+          }
+          break;
+        }
+      }
+      currentInsn = currentInsn.getNext();
+    }
+    // If we couldn't find it, fall back to the method return type
+    return Type.getReturnType(methodNode.desc).getClassName();
+  }
+
+  private List<String> extractParameters(String endpoint) {
+    if (endpoint == null) {
+      return Collections.emptyList();
+    }
+    List<String> parameters = new ArrayList<>();
+    Pattern pattern = Pattern.compile("\\{([^}]+)\\}");
+    Matcher matcher = pattern.matcher(endpoint);
+    while (matcher.find()) {
+      parameters.add(matcher.group(1));
+    }
     return parameters;
   }
 
-  private String getReturnType(String desc) {
-    String returnType = Type.getReturnType(desc).getClassName();
-    logger.info("Extracted return type: {}", returnType);
-    return returnType;
-  }
-
-  private boolean isWebClientCall(String owner, String methodName) {
-    boolean isWebClient = owner.contains("WebClient") ||
-        (owner.endsWith("Client") && (methodName.startsWith("get") || methodName.startsWith("post") ||
-            methodName.startsWith("put") || methodName.startsWith("delete")));
-    logger.info("Checking if {}.{} is a WebClient call: {}", owner, methodName, isWebClient);
-    return isWebClient;
-  }
-
-  private String extractUrlFromHttpCall(MethodNode method, MethodInsnNode methodInsn) {
-    logger.info("Attempting to extract URL from method call: {}.{}", methodInsn.owner, methodInsn.name);
-    String url = null;
-    AbstractInsnNode currentInsn = methodInsn.getPrevious();
-    int depth = 0;
-
-    while (currentInsn != null && depth < 10) {
-      if (currentInsn instanceof LdcInsnNode) {
-        LdcInsnNode ldcInsn = (LdcInsnNode) currentInsn;
-        if (ldcInsn.cst instanceof String) {
-          String potentialUrl = (String) ldcInsn.cst;
-          if (isValidUrl(potentialUrl)) {
-            url = potentialUrl;
-            logger.info("Found valid URL: {}", url);
-            break;
-          }
-        }
-      } else if (currentInsn instanceof MethodInsnNode) {
-        MethodInsnNode prevMethodInsn = (MethodInsnNode) currentInsn;
-        if (prevMethodInsn.name.equals("uri") || prevMethodInsn.name.equals("baseUrl")) {
-          logger.info("Found uri or baseUrl method, attempting to extract URL");
-          url = extractUrlFromUriMethod(method, prevMethodInsn);
-          if (url != null) {
-            break;
-          }
-        }
-      }
-      currentInsn = currentInsn.getPrevious();
-      depth++;
-    }
-
-    if (url == null) {
-      logger.warn("Could not extract URL from method call");
-    }
-    return url;
-  }
-
-  private String extractUrlFromUriMethod(MethodNode method, MethodInsnNode uriMethodInsn) {
-    logger.info("Attempting to extract URL from uri method: {}", uriMethodInsn.name);
-    AbstractInsnNode currentInsn = uriMethodInsn.getPrevious();
-    int depth = 0;
-
-    while (currentInsn != null && depth < 5) {
-      if (currentInsn instanceof LdcInsnNode) {
-        LdcInsnNode ldcInsn = (LdcInsnNode) currentInsn;
-        if (ldcInsn.cst instanceof String) {
-          String potentialUrl = (String) ldcInsn.cst;
-          if (isValidUrl(potentialUrl)) {
-            logger.info("Found valid URL from uri method: {}", potentialUrl);
-            return potentialUrl;
-          }
-        }
-      }
-      currentInsn = currentInsn.getPrevious();
-      depth++;
-    }
-
-    logger.warn("Could not extract URL from uri method");
-    return null;
-  }
-
-  private boolean isValidUrl(String url) {
-    try {
-      new URL(url);
-      logger.info("Valid URL: {}", url);
-      return true;
-    } catch (MalformedURLException e) {
-      logger.info("Invalid URL: {}", url);
-      return false;
-    }
-  }
-
-  private String extractHttpMethodFromCall(MethodInsnNode methodInsn) {
-    logger.info("Extracting HTTP method from call: {}.{}", methodInsn.owner, methodInsn.name);
-    String methodName = methodInsn.name.toLowerCase();
-
-    if (methodName.equals("get") || methodName.startsWith("get")) {
-      return "GET";
-    } else if (methodName.equals("post") || methodName.startsWith("post")) {
-      return "POST";
-    } else if (methodName.equals("put") || methodName.startsWith("put")) {
-      return "PUT";
-    } else if (methodName.equals("delete") || methodName.startsWith("delete")) {
-      return "DELETE";
-    } else if (methodName.equals("patch") || methodName.startsWith("patch")) {
-      return "PATCH";
-    } else if (methodName.equals("head") || methodName.startsWith("head")) {
-      return "HEAD";
-    } else if (methodName.equals("options") || methodName.startsWith("options")) {
-      return "OPTIONS";
-    } else if (methodName.equals("trace") || methodName.startsWith("trace")) {
-      return "TRACE";
-    } else if (methodName.equals("exchange")) {
-      logger.info("Found exchange method, attempting to extract HTTP method from arguments");
-      return extractHttpMethodFromExchangeMethod(methodInsn);
-    }
-
-    logger.warn("Could not determine HTTP method from call: {}.{}", methodInsn.owner, methodInsn.name);
-    return null;
-  }
-
-  private String extractHttpMethodFromExchangeMethod(MethodInsnNode exchangeMethodInsn) {
-    AbstractInsnNode currentInsn = exchangeMethodInsn.getPrevious();
-    int depth = 0;
-
-    while (currentInsn != null && depth < 5) {
-      if (currentInsn instanceof FieldInsnNode) {
-        FieldInsnNode fieldInsn = (FieldInsnNode) currentInsn;
-        if (fieldInsn.owner.endsWith("HttpMethod")) {
-          logger.info("Extracted HTTP method from exchange method: {}", fieldInsn.name);
-          return fieldInsn.name;
-        }
-      }
-      currentInsn = currentInsn.getPrevious();
-      depth++;
-    }
-
-    logger.warn("Could not extract HTTP method from exchange method");
-    return null;
+  private String resolvePropertyValue(String key) {
+    String value = configProperties.get(key);
+    return value != null ? value : "${" + key + "}";
   }
 }

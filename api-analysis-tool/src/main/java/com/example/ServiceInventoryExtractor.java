@@ -2,12 +2,16 @@ package com.example;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class ServiceInventoryExtractor {
+  private static final Logger logger = LoggerFactory.getLogger(ServiceInventoryExtractor.class);
 
-  public String extractUtilizedServices(List<ClassNode> allClasses) {
+  public String extractUtilizedServices(List<ClassNode> allClasses, Map<String, String> configProperties) {
+    logger.info("Extracting utilized services with {} config properties", configProperties.size());
     List<ServiceInfo> serviceInventory = new ArrayList<>();
 
     for (ClassNode classNode : allClasses) {
@@ -17,11 +21,16 @@ public class ServiceInventoryExtractor {
     }
 
     // Convert the List<ServiceInfo> to a String representation
-    return convertServiceInventoryToString(serviceInventory);
+    return convertServiceInventoryToString(serviceInventory, configProperties);
   }
 
-  private String convertServiceInventoryToString(List<ServiceInfo> serviceInventory) {
+  private String convertServiceInventoryToString(List<ServiceInfo> serviceInventory,
+      Map<String, String> configProperties) {
     StringBuilder sb = new StringBuilder();
+    String serviceDiscoveryUrl = configProperties.getOrDefault("eureka.client.serviceUrl.defaultZone", "");
+    if (!serviceDiscoveryUrl.isEmpty()) {
+      sb.append("Service Discovery URL: ").append(serviceDiscoveryUrl).append("\n");
+    }
     for (ServiceInfo info : serviceInventory) {
       sb.append(info.toString()).append("\n");
     }

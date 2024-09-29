@@ -1,0 +1,80 @@
+api:
+  external:
+    book-service: https://api.external.com/books
+    user-service: https://api.external.com/users
+    payment-gateway: https://payments.example.com/v1
+
+auth:
+  oauth:
+    token-url: https://auth.example.com/oauth/token
+    client-id: ${CLIENT_ID}
+    client-secret: ${CLIENT_SECRET}
+  api-key: ${API_KEY}
+
+http:
+  connect-timeout: 5000
+  read-timeout: 10000
+  max-retries: 3
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mydb
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mydb
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+spring:
+  rabbitmq:
+    host: rabbitmq.example.com
+    port: 5672
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASS}
+
+spring:
+  redis:
+    host: redis.example.com
+    port: 6379
+
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG
+
+features:
+  new-user-flow: true
+  beta-service: false
+
+user-service:
+  registration:
+    email-verification: true
+    welcome-email-template: welcome-template-v2
+
+order-service:
+  shipping:
+    default-provider: fedex
+    tracking-url-template: https://www.fedex.com/fedextrack/?trknbr={trackingNumber}
+
+
+aws:
+  s3:
+    bucket-name: my-app-assets
+    region: us-west-2
+  sns:
+    topic-arn: arn:aws:sns:us-west-2:123456789012:MyTopic
+
+azure:
+  storage:
+    account-name: myappstorage
+    account-key: ${AZURE_STORAGE_KEY}

@@ -59,8 +59,10 @@ public class SequenceDiagramGenerator {
     customRules.add(matcher);
   }
 
-  public String generateSequenceDiagram(List<ClassNode> allClasses, Map<String, ClassInfo> sourceCodeInfo) {
+  public String generateSequenceDiagram(List<ClassNode> allClasses, Map<String, ClassInfo> sourceCodeInfo,
+      Map<String, String> configProperties, String fileName) {
     logger.info("Starting sequence diagram generation for {} classes", allClasses.size());
+    logger.info("Generating sequence diagram with {} config properties", configProperties.size());
     StringBuilder sb = new StringBuilder();
     initializeDiagram(sb);
 
@@ -78,9 +80,11 @@ public class SequenceDiagramGenerator {
     mapMethodAnnotations(allClasses);
 
     logger.info("Extracting exposed APIs");
-    List<APIInfo> exposedApis = new APIInventoryExtractor().extractExposedAPIs(allClasses);
+    List<APIInfo> exposedApis = new APIInventoryExtractor(configProperties, fileName).extractExposedAPIs(allClasses);
     logger.info("Finding external calls");
-    List<ExternalCallInfo> externalCalls = new ExternalCallScanner().findExternalCalls(allClasses);
+    Map<String, Set<String>> classImports = extractClassImports(sourceCodeInfo);
+    ExternalCallScanner scanner = new ExternalCallScanner(configProperties, classImports);
+    List<ExternalCallInfo> externalCalls = scanner.findExternalCalls(allClasses);
 
     logger.info("Found {} exposed APIs and {} external calls", exposedApis.size(), externalCalls.size());
 
@@ -95,6 +99,14 @@ public class SequenceDiagramGenerator {
     sb.append("@enduml");
     logger.info("Sequence diagram generation completed");
     return sb.toString();
+  }
+
+  private Map<String, Set<String>> extractClassImports(Map<String, ClassInfo> sourceCodeInfo) {
+    Map<String, Set<String>> classImports = new HashMap<>();
+    for (Map.Entry<String, ClassInfo> entry : sourceCodeInfo.entrySet()) {
+      classImports.put(entry.getKey(), new HashSet<>(entry.getValue().getImports()));
+    }
+    return classImports;
   }
 
   private List<ClassNode> scanTargetFolder() {
@@ -196,7 +208,7 @@ public class SequenceDiagramGenerator {
 
     ClassNode callerClass = findImplementationClass(allClasses, callerName);
     if (callerClass != null) {
-        detectServiceInjections(sb, callerClass, interfaceCallerName);
+      detectServiceInjections(sb, callerClass, interfaceCallerName);
     }
 
     analyzeMethodChain(sb, method, allClasses, depth, callerName, externalCalls);
@@ -1465,17 +1477,16 @@ public class SequenceDiagramGenerator {
   private void detectServiceInjections(StringBuilder sb, ClassNode classNode, String callerName) {
     logger.debug("Detecting service injections for: {}", callerName);
     for (FieldNode field : classNode.fields) {
-        if (isServiceField(field)) {
-            String injectedServiceName = getSimpleClassName(Type.getType(field.desc).getClassName());
-            logger.debug("Found injected service: {} in {}", injectedServiceName, callerName);
-            sb.append("note over ").append(callerName).append(" : Injected ").append(injectedServiceName).append("\n");
-        }
+      if (isServiceField(field)) {
+        String injectedServiceName = getSimpleClassName(Type.getType(field.desc).getClassName());
+        logger.debug("Found injected service: {} in {}", injectedServiceName, callerName);
+        sb.append("note over ").append(callerName).append(" : Injected ").append(injectedServiceName).append("\n");
+      }
     }
   }
 
   private boolean isServiceField(FieldNode field) {
     return field.visibleAnnotations != null &&
-           field.visibleAnnotations.stream().anyMatch(a -> 
-               a.desc.contains("Autowired") || a.desc.contains("Inject"));
+        field.visibleAnnotations.stream().anyMatch(a -> a.desc.contains("Autowired") || a.desc.contains("Inject"));
   }
 }

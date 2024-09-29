@@ -1,0 +1,6 @@
+Type,Service Name,API Name,HTTP Method,API Endpoint,Description,Version,Service Dependency,Return Type,Parameters
+Internal,author-service-0.0,getAllAuthors,GET,http://:8081/api/authors,getAllAuthors,1.0,AuthorService,java.util.List,
+Internal,author-service-0.0,getAuthorById,GET,http://:8081/api/authors/{id},getAuthorById,1.0,AuthorService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
+Internal,author-service-0.0,createAuthor,POST,http://:8081/api/authors,createAuthor,1.0,AuthorService,com.example.authorservice.model.Author,com.example.authorservice.model.Author author (RequestBody)
+Internal,author-service-0.0,updateAuthor,PUT,http://:8081/api/authors/{id},updateAuthor,1.0,AuthorService,org.springframework.http.ResponseEntity<java.lang.Long>,"java.lang.Long id (PathVariable), com.example.authorservice.model.Author authorDetails (RequestBody)"
+Internal,author-service-0.0,deleteAuthor,DELETE,http://:8081/api/authors/{id},deleteAuthor,1.0,AuthorService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)

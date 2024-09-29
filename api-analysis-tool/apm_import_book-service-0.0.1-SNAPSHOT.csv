@@ -1,37 +1,8 @@
-Type,HTTP Method,Path,Method Name,Return Type,Parameters,External URL
-Internal,N/A,/api/books,com/example/controller/BookController.<init>,void,com.example.service.BookService,N/A
-Internal,GET,/api/books,com/example/controller/BookController.getAllBooks,java.util.List,,N/A
-Internal,GET,/api/books/{id},com/example/controller/BookController.getBookById,org.springframework.http.ResponseEntity,java.lang.Long,N/A
-Internal,POST,/api/books,com/example/controller/BookController.createBook,com.example.model.Book,com.example.model.Book,N/A
-Internal,PUT,/api/books/{id},com/example/controller/BookController.updateBook,org.springframework.http.ResponseEntity,java.lang.Long;com.example.model.Book,N/A
-Internal,DELETE,/api/books/{id},com/example/controller/BookController.deleteBook,org.springframework.http.ResponseEntity,java.lang.Long,N/A
-Internal,GET,/api/books/{id}/with-author,com/example/controller/BookController.getBookWithAuthor,org.springframework.http.ResponseEntity,java.lang.Long,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.<init>,void,com.example.repository.BookRepository;com.example.service.AuthorServiceClient,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.getAllBooks,java.util.List,,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.getBookById,java.util.Optional,java.lang.Long,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.createBook,com.example.model.Book,com.example.model.Book,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.updateBook,java.util.Optional,java.lang.Long;com.example.model.Book,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.deleteBook,void,java.lang.Long,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.getBookWithAuthor,java.util.Optional,java.lang.Long,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.lambda$getBookWithAuthor$1,java.lang.String,com.example.model.Book,N/A
-Internal,N/A,N/A,com/example/service/impl/BookServiceImpl.lambda$updateBook$0,com.example.model.Book,com.example.model.Book;com.example.model.Book,N/A
-Internal,N/A,N/A,com/example/service/AuthorServiceClient.<init>,void,org.springframework.web.reactive.function.client.WebClient$Builder,N/A
-Internal,N/A,N/A,com/example/service/AuthorServiceClient.getAuthor,reactor.core.publisher.Mono,java.lang.Long,N/A
-Internal,N/A,N/A,com/example/service/AuthorServiceClient.lambda$getAuthor$1,reactor.core.publisher.Mono,org.springframework.web.reactive.function.client.ClientResponse,N/A
-Internal,N/A,N/A,com/example/service/AuthorServiceClient.lambda$getAuthor$0,reactor.core.publisher.Mono,java.lang.Long;org.springframework.web.reactive.function.client.ClientResponse,N/A
-External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.getURLResource,,Unknown URL
-External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,String,Unknown URL
-External,GET,N/A,int,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
-External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
-External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
-External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
-External,Unknown HTTP Method,N/A,void,org/springframework/boot/loader/PropertiesLauncher.exists,,Unknown URL
-External,Unknown HTTP Method,N/A,WebClient$Builder,com/example/BookServiceApplication.webClientBuilder,,Unknown URL
-External,Unknown HTTP Method,N/A,WebClient$Builder,com/example/service/AuthorServiceClient.<init>,String,http://localhost:8081
-External,Unknown HTTP Method,N/A,WebClient,com/example/service/AuthorServiceClient.<init>,,http://localhost:8081
-External,GET,N/A,WebClient$RequestHeadersUriSpec,com/example/service/AuthorServiceClient.getAuthor,,Unknown URL
-External,Unknown HTTP Method,N/A,WebClient$RequestHeadersSpec,com/example/service/AuthorServiceClient.getAuthor,String;Object[],Unknown URL
-External,Unknown HTTP Method,N/A,WebClient$ResponseSpec,com/example/service/AuthorServiceClient.getAuthor,,Unknown URL
-External,Unknown HTTP Method,N/A,WebClient$ResponseSpec,com/example/service/AuthorServiceClient.getAuthor,Predicate;Function,Unknown URL
-External,Unknown HTTP Method,N/A,WebClient$ResponseSpec,com/example/service/AuthorServiceClient.getAuthor,Predicate;Function,Unknown URL
-External,Unknown HTTP Method,N/A,Mono,com/example/service/AuthorServiceClient.getAuthor,Class,Unknown URL
+Type,Service Name,API Name,HTTP Method,API Endpoint,Description,Version,Service Dependency,Return Type,Parameters
+Internal,vh-book-store,getAllBooks,GET,http://vh-book-store:8089/api/books,getAllBooks,1.0,BookService,java.util.List,
+Internal,vh-book-store,getBookById,GET,http://vh-book-store:8089/api/books/{id},getBookById,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
+Internal,vh-book-store,createBook,POST,http://vh-book-store:8089/api/books,createBook,1.0,BookService,com.example.model.Book,com.example.model.Book book (RequestBody)
+Internal,vh-book-store,updateBook,PUT,http://vh-book-store:8089/api/books/{id},updateBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,"java.lang.Long id (PathVariable), com.example.model.Book bookDetails (RequestBody)"
+Internal,vh-book-store,deleteBook,DELETE,http://vh-book-store:8089/api/books/{id},deleteBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
+Internal,vh-book-store,getBookWithAuthor,GET,http://vh-book-store:8089/api/books/{id}/with-author,getBookWithAuthor,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
+External,AuthorService,getAuthor,GET,Unknown,Method: getAuthor,N/A,N/A,com.example.dto.AuthorDTO,
