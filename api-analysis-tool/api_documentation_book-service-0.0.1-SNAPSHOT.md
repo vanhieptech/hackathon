@@ -23,7 +23,7 @@
 - **Service Dependencies:** BookService
 - **Return Type:** org.springframework.http.ResponseEntity<java.lang.Long>
 - **Parameters:**
-  - java.lang.Long id (PathVariable)
+  - java.lang.Long java.lang.Long (PathVariable)
 
 ### createBook
 
@@ -35,7 +35,7 @@
 - **Service Dependencies:** BookService
 - **Return Type:** com.example.model.Book
 - **Parameters:**
-  - com.example.model.Book book (RequestBody)
+  - com.example.model.Book com.example.model.Book (RequestBody)
 
 ### updateBook
 
@@ -47,8 +47,8 @@
 - **Service Dependencies:** BookService
 - **Return Type:** org.springframework.http.ResponseEntity<java.lang.Long>
 - **Parameters:**
-  - java.lang.Long id (PathVariable)
-  - com.example.model.Book bookDetails (RequestBody)
+  - java.lang.Long java.lang.Long (PathVariable)
+  - com.example.model.Book com.example.model.Book (RequestBody)
 
 ### deleteBook
 
@@ -60,7 +60,7 @@
 - **Service Dependencies:** BookService
 - **Return Type:** org.springframework.http.ResponseEntity<java.lang.Long>
 - **Parameters:**
-  - java.lang.Long id (PathVariable)
+  - java.lang.Long java.lang.Long (PathVariable)
 
 ### getBookWithAuthor
 
@@ -72,7 +72,20 @@
 - **Service Dependencies:** BookService
 - **Return Type:** org.springframework.http.ResponseEntity<java.lang.Long>
 - **Parameters:**
+  - java.lang.Long java.lang.Long (PathVariable)
+
+### getAuthorById
+
+- **Service Name:** book-service-0.0
+- **HTTP Method:** GET
+- **API Endpoint:** http://vh-book-store:8089/authors/{id}
+- **Description:** getAuthorById
+- **Version:** 1.0
+- **Service Dependencies:** 
+- **Return Type:** reactor.core.publisher.Mono<java.lang.Long>
+- **Parameters:**
   - java.lang.Long id (PathVariable)
+  - org.springframework.web.server.ServerWebExchange exchange
 
 ## External API Calls
 

@@ -1,8 +1,9 @@
 Type,Service Name,API Name,HTTP Method,API Endpoint,Description,Version,Service Dependency,Return Type,Parameters
 Internal,book-service-0.0,getAllBooks,GET,http://vh-book-store:8089/api/books,getAllBooks,1.0,BookService,java.util.List,
-Internal,book-service-0.0,getBookById,GET,http://vh-book-store:8089/api/books/{id},getBookById,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
-Internal,book-service-0.0,createBook,POST,http://vh-book-store:8089/api/books,createBook,1.0,BookService,com.example.model.Book,com.example.model.Book book (RequestBody)
-Internal,book-service-0.0,updateBook,PUT,http://vh-book-store:8089/api/books/{id},updateBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,"java.lang.Long id (PathVariable), com.example.model.Book bookDetails (RequestBody)"
-Internal,book-service-0.0,deleteBook,DELETE,http://vh-book-store:8089/api/books/{id},deleteBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
-Internal,book-service-0.0,getBookWithAuthor,GET,http://vh-book-store:8089/api/books/{id}/with-author,getBookWithAuthor,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
+Internal,book-service-0.0,getBookById,GET,http://vh-book-store:8089/api/books/{id},getBookById,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long java.lang.Long (PathVariable)
+Internal,book-service-0.0,createBook,POST,http://vh-book-store:8089/api/books,createBook,1.0,BookService,com.example.model.Book,com.example.model.Book com.example.model.Book (RequestBody)
+Internal,book-service-0.0,updateBook,PUT,http://vh-book-store:8089/api/books/{id},updateBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,"java.lang.Long java.lang.Long (PathVariable), com.example.model.Book com.example.model.Book (RequestBody)"
+Internal,book-service-0.0,deleteBook,DELETE,http://vh-book-store:8089/api/books/{id},deleteBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long java.lang.Long (PathVariable)
+Internal,book-service-0.0,getBookWithAuthor,GET,http://vh-book-store:8089/api/books/{id}/with-author,getBookWithAuthor,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long java.lang.Long (PathVariable)
+Internal,book-service-0.0,getAuthorById,GET,http://vh-book-store:8089/authors/{id},getAuthorById,1.0,,reactor.core.publisher.Mono<java.lang.Long>,"java.lang.Long id (PathVariable), org.springframework.web.server.ServerWebExchange exchange (N/A)"
 External,AuthorService,getAuthor,GET,http://localhost:8081/api/authors/{id},Method: getAuthor,N/A,N/A,reactor.core.publisher.Mono,id

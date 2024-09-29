@@ -107,8 +107,15 @@ public class SequenceDiagramGenerator {
         for (String interfaceName : classNode.interfaces) {
           String simpleInterfaceName = getSimpleClassName(interfaceName);
           String simpleClassName = getSimpleClassName(classNode.name);
-          if (simpleClassName.contains(simpleInterfaceName)) {
+          // Check if the class is a controller
+          boolean isController = classNode.visibleAnnotations != null &&
+              classNode.visibleAnnotations.stream()
+                  .anyMatch(an -> an.desc.contains("RestController"));
+
+          // If it's a controller or the class name contains the interface name
+          if (isController || simpleClassName.contains(simpleInterfaceName)) {
             implToInterfaceMap.put(simpleClassName, simpleInterfaceName);
+            break; // We've found a match, no need to check other interfaces
           }
         }
       }
@@ -687,7 +694,7 @@ public class SequenceDiagramGenerator {
     // Add Controllers
     for (ClassNode classNode : allClasses) {
       if (isController(classNode)) {
-        String participantName = getSimpleClassName(classNode.name);
+        String participantName = getParticipantName(classNode);
         if (!addedParticipants.contains(participantName)) {
           orderedParticipants.add(participantName);
           addedParticipants.add(participantName);
@@ -734,6 +741,18 @@ public class SequenceDiagramGenerator {
       sb.append("participant \"").append(participant).append("\"\n");
     }
     sb.append("\n");
+  }
+
+  private String getParticipantName(ClassNode classNode) {
+    String simpleName = getSimpleClassName(classNode.name);
+    if (classNode.interfaces != null && !classNode.interfaces.isEmpty()) {
+      for (String interfaceName : classNode.interfaces) {
+        if (interfaceName.endsWith("Api")) {
+          return getSimpleClassName(interfaceName);
+        }
+      }
+    }
+    return simpleName;
   }
 
   private void scanServiceDependencies(List<ClassNode> allClasses) {

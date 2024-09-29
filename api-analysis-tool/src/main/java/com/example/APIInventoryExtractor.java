@@ -1,10 +1,15 @@
 package com.example;
 
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,15 +35,88 @@ public class APIInventoryExtractor {
 
   public List<APIInfo> extractExposedAPIs(List<ClassNode> allClasses) {
     logger.info("Extracting exposed APIs");
-    return allClasses.stream()
+    List<APIInfo> apis = allClasses.stream()
         .filter(this::isApiClass)
         .flatMap(classNode -> extractAPIsFromClass(classNode).stream())
         .filter(this::isApiEnabled)
         .collect(Collectors.toList());
+    logger.info("Extracted {} APIs", apis.size());
+    return apis;
   }
 
   private boolean isApiClass(ClassNode classNode) {
-    return isController(classNode) || isService(classNode);
+    // Check for existing conditions (Controller or Service annotations)
+    if (isController(classNode) || isService(classNode)) {
+      return true;
+    }
+
+    // Check for OpenAPI generated classes
+    if (classNode.visibleAnnotations != null) {
+      for (AnnotationNode annotation : classNode.visibleAnnotations) {
+        if (annotation.desc.contains("Generated") || annotation.desc.contains("OpenAPIDefinition")) {
+          if (annotation.values != null) {
+            for (int i = 0; i < annotation.values.size(); i += 2) {
+              if (annotation.values.get(i).equals("value") &&
+                  (annotation.values.get(i + 1).toString().contains("openapi-generator") ||
+                      annotation.values.get(i + 1).toString().contains("swagger"))) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Check for OpenAPI interface or class naming conventions
+    if ((classNode.access & Opcodes.ACC_INTERFACE) != 0 || (classNode.access & Opcodes.ACC_ABSTRACT) != 0) {
+      if (classNode.name.endsWith("Api") || classNode.name.endsWith("Controller")
+          || classNode.name.endsWith("Resource")) {
+        return true;
+      }
+    }
+
+    // Check for specific OpenAPI annotations
+    if (hasOpenAPIAnnotations(classNode)) {
+      return true;
+    }
+
+    // Check for Spring Web annotations
+    if (hasSpringWebAnnotations(classNode)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private boolean hasOpenAPIAnnotations(ClassNode classNode) {
+    if (classNode.visibleAnnotations != null) {
+      for (AnnotationNode annotation : classNode.visibleAnnotations) {
+        if (annotation.desc.contains("ApiOperation") ||
+            annotation.desc.contains("ApiResponses") ||
+            annotation.desc.contains("ApiModel") ||
+            annotation.desc.contains("Tag")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private boolean hasSpringWebAnnotations(ClassNode classNode) {
+    if (classNode.visibleAnnotations != null) {
+      for (AnnotationNode annotation : classNode.visibleAnnotations) {
+        if (annotation.desc.contains("RestController") ||
+            annotation.desc.contains("RequestMapping") ||
+            annotation.desc.contains("GetMapping") ||
+            annotation.desc.contains("PostMapping") ||
+            annotation.desc.contains("PutMapping") ||
+            annotation.desc.contains("DeleteMapping") ||
+            annotation.desc.contains("PatchMapping")) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private List<APIInfo> extractAPIsFromClass(ClassNode classNode) {
@@ -261,7 +339,9 @@ public class APIInventoryExtractor {
   }
 
   private boolean isApiEnabled(APIInfo apiInfo) {
-    String path = apiInfo.getApiEndpoint();
+    String path = apiInfo.getPath();
+    if (apiInfo.getHttpMethod().equals("UNKNOWN"))
+      return false;
 
     // Check if the API is in the ignored paths
     if (isPathIgnored(path)) {
@@ -285,6 +365,9 @@ public class APIInventoryExtractor {
   }
 
   private boolean isPathEnabled(String path) {
+    if (path.isEmpty()) {
+      return false;
+    }
     // If no specific endpoints are enabled, all non-ignored endpoints are
     // considered enabled
     if (enabledEndpoints.isEmpty()) {
@@ -372,16 +455,55 @@ public class APIInventoryExtractor {
   }
 
   private String[] extractParameterNames(MethodNode methodNode) {
-    if (methodNode.localVariables != null) {
-      String[] names = new String[methodNode.localVariables.size() - 1]; // -1 to exclude 'this'
-      for (LocalVariableNode lvn : methodNode.localVariables) {
-        if (lvn.index > 0) { // index 0 is 'this' for instance methods
-          names[lvn.index - 1] = lvn.name;
+    Type[] argumentTypes = Type.getArgumentTypes(methodNode.desc);
+    String[] parameterNames = new String[argumentTypes.length];
+
+    // Check for parameter annotations
+    if (methodNode.visibleParameterAnnotations != null) {
+      for (int i = 0; i < methodNode.visibleParameterAnnotations.length; i++) {
+        List<AnnotationNode> annotations = methodNode.visibleParameterAnnotations[i];
+        if (annotations != null) {
+          for (AnnotationNode an : annotations) {
+            if (an.desc.contains("RequestParam") || an.desc.contains("PathVariable")
+                || an.desc.contains("RequestBody")) {
+              if (an.values != null) {
+                for (int j = 0; j < an.values.size(); j += 2) {
+                  if (an.values.get(j).equals("value") || an.values.get(j).equals("name")) {
+                    parameterNames[i] = (String) an.values.get(j + 1);
+                    break;
+                  }
+                }
+              }
+              // If no name is specified in the annotation, use the parameter type
+              if (parameterNames[i] == null) {
+                parameterNames[i] = argumentTypes[i].getClassName();
+              }
+              break;
+            }
+          }
         }
       }
-      return names;
     }
-    return null;
+
+    // Fall back to local variable names if available
+    if (methodNode.localVariables != null) {
+      for (LocalVariableNode lvn : methodNode.localVariables) {
+        if (lvn.index > 0 && lvn.index <= parameterNames.length) {
+          if (parameterNames[lvn.index - 1] == null) {
+            parameterNames[lvn.index - 1] = lvn.name;
+          }
+        }
+      }
+    }
+
+    // If still null, use generic parameter names
+    for (int i = 0; i < parameterNames.length; i++) {
+      if (parameterNames[i] == null) {
+        parameterNames[i] = "param" + (i + 1);
+      }
+    }
+
+    return parameterNames;
   }
 
   private String extractParameterAnnotationType(MethodNode methodNode, int index) {
@@ -410,19 +532,57 @@ public class APIInventoryExtractor {
   private String extractHttpMethod(MethodNode methodNode) {
     if (methodNode.visibleAnnotations != null) {
       for (AnnotationNode an : methodNode.visibleAnnotations) {
-        if (an.desc.contains("GetMapping"))
-          return "GET";
-        if (an.desc.contains("PostMapping"))
-          return "POST";
-        if (an.desc.contains("PutMapping"))
-          return "PUT";
-        if (an.desc.contains("DeleteMapping"))
-          return "DELETE";
-        if (an.desc.contains("PatchMapping"))
-          return "PATCH";
+        String desc = an.desc.toLowerCase();
+        if (desc.contains("mapping")) {
+          if (desc.contains("get"))
+            return "GET";
+          if (desc.contains("post"))
+            return "POST";
+          if (desc.contains("put"))
+            return "PUT";
+          if (desc.contains("delete"))
+            return "DELETE";
+          if (desc.contains("patch"))
+            return "PATCH";
+          if (desc.contains("head"))
+            return "HEAD";
+          if (desc.contains("options"))
+            return "OPTIONS";
+          if (desc.contains("trace"))
+            return "TRACE";
+
+          // Handle @RequestMapping
+          if (desc.contains("requestmapping")) {
+            return extractMethodFromRequestMapping(an);
+          }
+        }
       }
     }
-    return null;
+    return "UNKNOWN";
+  }
+
+  private String extractMethodFromRequestMapping(AnnotationNode an) {
+    if (an.values != null) {
+      for (int i = 0; i < an.values.size(); i += 2) {
+        if (an.values.get(i).equals("method")) {
+          Object methodValue = an.values.get(i + 1);
+          if (methodValue instanceof String[]) {
+            String[] methods = (String[]) methodValue;
+            if (methods.length > 0) {
+              String fullMethodName = methods[0];
+              String[] parts = fullMethodName.split("\\.");
+              return parts[parts.length - 1].toUpperCase();
+            }
+          } else if (methodValue instanceof List) {
+            List<String[]> methods = (List<String[]>) methodValue;
+            if (!methods.isEmpty()) {
+              return methods.get(0)[1].toUpperCase();
+            }
+          }
+        }
+      }
+    }
+    return "GET"; // Default to GET if method is not specified
   }
 
   private String extractPath(ClassNode classNode, MethodNode methodNode) {
