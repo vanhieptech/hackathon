@@ -325,7 +325,7 @@ public class APIInventoryExtractor {
             .anyMatch(an -> an.desc.contains(annotationName));
   }
 
-  private String extractReturnType(MethodNode methodNode) {
+  String extractReturnType(MethodNode methodNode) {
     if (methodNode.desc == null) {
       return "void";
     }
@@ -350,7 +350,7 @@ public class APIInventoryExtractor {
     return typeName;
   }
 
-  private List<APIInfo.ParameterInfo> extractParameters(MethodNode methodNode) {
+  List<APIInfo.ParameterInfo> extractParameters(MethodNode methodNode) {
     if (methodNode.desc == null) {
       return Collections.emptyList();
     }

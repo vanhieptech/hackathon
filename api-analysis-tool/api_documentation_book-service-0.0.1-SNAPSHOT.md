@@ -76,3 +76,13 @@
 
 ## External API Calls
 
+### getAuthor
+
+- **Service Name:** AuthorService
+- **URL:** http://localhost:8081/api/authors/{id}
+- **HTTP Method:** GET
+- **Description:** Method: getAuthor
+- **Parameters:**
+  - id
+- **Response Type:** com.example.dto.AuthorDTO
+

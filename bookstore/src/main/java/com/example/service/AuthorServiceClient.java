@@ -12,11 +12,8 @@ import reactor.core.publisher.Mono;
 public class AuthorServiceClient {
   private final WebClient webClient;
 
-  @Value("${author.service.base-url}")
-  private String baseUrl;
-
   public AuthorServiceClient(WebClient.Builder webClientBuilder) {
-    this.webClient = webClientBuilder.baseUrl(baseUrl).build();
+    this.webClient = webClientBuilder.baseUrl("http://localhost:8081").build();
   }
 
   public Mono<AuthorDTO> getAuthor(Long authorId) {

@@ -5,3 +5,4 @@ Internal,book-service-0.0,createBook,POST,http://vh-book-store:8089/api/books,cr
 Internal,book-service-0.0,updateBook,PUT,http://vh-book-store:8089/api/books/{id},updateBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,"java.lang.Long id (PathVariable), com.example.model.Book bookDetails (RequestBody)"
 Internal,book-service-0.0,deleteBook,DELETE,http://vh-book-store:8089/api/books/{id},deleteBook,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
 Internal,book-service-0.0,getBookWithAuthor,GET,http://vh-book-store:8089/api/books/{id}/with-author,getBookWithAuthor,1.0,BookService,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long id (PathVariable)
+External,AuthorService,getAuthor,GET,http://localhost:8081/api/authors/{id},Method: getAuthor,N/A,N/A,com.example.dto.AuthorDTO,id
