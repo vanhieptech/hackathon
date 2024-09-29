@@ -15,12 +15,13 @@ public class AnalysisResult {
   private String csvPath;
   private String documentationPath;
   private String htmlDiffPath;
+  private final List<DatabaseChangelogScanner.DatabaseChange> databaseChanges;
 
   public AnalysisResult(String sequenceDiagram, String classDiagram, String componentDiagram,
       String stateDiagram, String activityDiagram, ComparisonResult comparisonResult,
       List<APIInfo> latestExposedAPIInventory, String utilizedServiceInventory,
       List<ExternalCallInfo> externalCalls, String csvPath, String documentationPath,
-      String htmlDiffPath) {
+      String htmlDiffPath, List<DatabaseChangelogScanner.DatabaseChange> databaseChanges) {
     this.sequenceDiagram = sequenceDiagram;
     this.classDiagram = classDiagram;
     this.componentDiagram = componentDiagram;
@@ -33,6 +34,7 @@ public class AnalysisResult {
     this.csvPath = csvPath;
     this.documentationPath = documentationPath;
     this.htmlDiffPath = htmlDiffPath;
+    this.databaseChanges = databaseChanges;
   }
 
   // Getters and setters for all fields
@@ -130,5 +132,9 @@ public class AnalysisResult {
 
   public void setHtmlDiffPath(String htmlDiffPath) {
     this.htmlDiffPath = htmlDiffPath;
+  }
+
+  public List<DatabaseChangelogScanner.DatabaseChange> getDatabaseChanges() {
+    return databaseChanges;
   }
 }

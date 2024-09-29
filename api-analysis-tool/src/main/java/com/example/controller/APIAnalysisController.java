@@ -174,4 +174,10 @@ public class APIAnalysisController {
       default -> "unknown_file";
     };
   }
+
+  @GetMapping("/database-changelogs")
+  public ResponseEntity<List<DatabaseChangelogScanner.DatabaseChange>> getDatabaseChangeLogs() {
+    List<DatabaseChangelogScanner.DatabaseChange> changeLogs = apiAnalysisTool.getLatestDatabaseChanges();
+    return ResponseEntity.ok(changeLogs);
+  }
 }

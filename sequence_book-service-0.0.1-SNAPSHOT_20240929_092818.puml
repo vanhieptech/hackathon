@@ -1,0 +1,467 @@
+@startuml
+!pragma teoz true
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+skinparam maxmessagesize 60
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam SequenceGroupBodyBackgroundColor transparent
+skinparam SequenceGroupBorderColor gray
+skinparam SequenceGroupFontStyle italic
+
+actor Client
+database BookDB
+participant BookService
+
+== com/example/controller/BookController.<init> ==
+"Client" -> "BookController" : null /api/books
+activate "BookController"
+note right of "BookController"
+  API Entry Point
+end note
+"BookController" --> "Client" : HTTP Response (void)
+deactivate "BookController"
+
+== com/example/controller/BookController.getAllBooks ==
+"Client" -> "BookController" : GET /api/books
+activate "BookController"
+note right of "BookController"
+  API Entry Point
+end note
+"BookController" -> "BookService" : getAllBooks()
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findAll()
+activate "BookRepository"
+"BookRepository" --> "BookService" : List
+deactivate "BookRepository"
+"BookService" --> "BookController" : List
+deactivate "BookService"
+"BookService" -> "BookRepository" : findAll()
+activate "BookRepository"
+"BookRepository" --> "BookService" : List
+deactivate "BookRepository"
+"BookController" -> "BookService" : getAllBooks()
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findAll()
+activate "BookRepository"
+"BookRepository" --> "BookService" : List
+deactivate "BookRepository"
+"BookService" --> "BookController" : List
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (java.util.List)
+deactivate "BookController"
+
+== com/example/controller/BookController.getBookById ==
+"Client" -> "BookController" : GET /api/books/{id}
+activate "BookController"
+note right of "BookController"
+  API Entry Point
+end note
+"BookController" -> "BookService" : getBookById(Long arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" --> "BookController" : Optional
+deactivate "BookService"
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookController" -> "BookService" : getBookById(Long arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" --> "BookController" : Optional
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/controller/BookController.createBook ==
+"Client" -> "BookController" : POST /api/books
+activate "BookController"
+note right of "BookController"
+  API Entry Point
+end note
+"BookController" -> "BookService" : createBook(Book arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : save(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Object
+deactivate "BookRepository"
+"BookService" --> "BookController" : Book
+deactivate "BookService"
+"BookService" -> "BookRepository" : save(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Object
+deactivate "BookRepository"
+"BookController" -> "BookService" : createBook(Book arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : save(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Object
+deactivate "BookRepository"
+"BookService" --> "BookController" : Book
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (com.example.model.Book)
+deactivate "BookController"
+
+== com/example/controller/BookController.updateBook ==
+"Client" -> "BookController" : PUT /api/books/{id}
+activate "BookController"
+note right of "BookController"
+  API Entry Point
+end note
+"BookController" -> "BookService" : updateBook(Long arg0, Book arg1)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" -> "Optional" : map(Function arg0)
+activate "Optional"
+"Optional" --> "BookService" : Optional
+deactivate "Optional"
+"BookService" --> "BookController" : Optional
+deactivate "BookService"
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookController" -> "BookService" : updateBook(Long arg0, Book arg1)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" -> "Optional" : map(Function arg0)
+activate "Optional"
+"Optional" --> "BookService" : Optional
+deactivate "Optional"
+"BookService" --> "BookController" : Optional
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/controller/BookController.deleteBook ==
+"Client" -> "BookController" : DELETE /api/books/{id}
+activate "BookController"
+note right of "BookController"
+  API Entry Point
+end note
+"BookController" -> "BookService" : deleteBook(Long arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : deleteById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : void
+deactivate "BookRepository"
+"BookService" --> "BookController" : void
+deactivate "BookService"
+"BookService" -> "BookRepository" : deleteById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : void
+deactivate "BookRepository"
+"BookController" -> "BookService" : deleteBook(Long arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : deleteById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : void
+deactivate "BookRepository"
+"BookService" --> "BookController" : void
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/controller/BookController.getBookWithAuthor ==
+"Client" -> "BookController" : GET /api/books/{id}/with-author
+activate "BookController"
+note right of "BookController"
+  API Entry Point
+end note
+"BookController" -> "BookService" : getBookWithAuthor(Long arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" -> "Optional" : map(Function arg0)
+activate "Optional"
+"Optional" --> "BookService" : Optional
+deactivate "Optional"
+"BookService" --> "BookController" : Optional
+deactivate "BookService"
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookController" -> "BookService" : getBookWithAuthor(Long arg0)
+activate "BookService"
+note over BookService : Get bookRepository:com.example.repository.BookRepository from BookServiceImpl
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" -> "Optional" : map(Function arg0)
+activate "Optional"
+"Optional" --> "BookService" : Optional
+deactivate "Optional"
+"BookService" --> "BookController" : Optional
+deactivate "BookService"
+"BookController" --> "Client" : HTTP Response (org.springframework.http.ResponseEntity)
+deactivate "BookController"
+
+== com/example/service/impl/BookServiceImpl.<init> ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+"BookService" --> "Client" : HTTP Response (void)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.getAllBooks ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Database Operation
+"BookService" -> "BookRepository" : findAll()
+activate "BookRepository"
+"BookRepository" -> "BookDB" : READ
+activate "BookDB"
+"BookDB" --> "BookRepository" : return data
+deactivate "BookDB"
+"BookRepository" --> "BookService" : return List
+deactivate "BookRepository"
+end
+"BookService" -> "BookRepository" : findAll()
+activate "BookRepository"
+"BookRepository" --> "BookService" : List
+deactivate "BookRepository"
+"BookService" --> "Client" : HTTP Response (java.util.List)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.getBookById ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Database Operation
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" -> "BookDB" : READ
+activate "BookDB"
+"BookDB" --> "BookRepository" : return data
+deactivate "BookDB"
+"BookRepository" --> "BookService" : return Optional
+deactivate "BookRepository"
+end
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" --> "Client" : HTTP Response (java.util.Optional)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.createBook ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Database Operation
+"BookService" -> "BookRepository" : save(Object arg0)
+activate "BookRepository"
+"BookRepository" -> "BookDB" : CREATE
+activate "BookDB"
+"BookDB" --> "BookRepository" : return data
+deactivate "BookDB"
+"BookRepository" --> "BookService" : return Object
+deactivate "BookRepository"
+end
+"BookService" -> "BookRepository" : save(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Object
+deactivate "BookRepository"
+"BookService" --> "Client" : HTTP Response (com.example.model.Book)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.updateBook ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Database Operation
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" -> "BookDB" : READ
+activate "BookDB"
+"BookDB" --> "BookRepository" : return data
+deactivate "BookDB"
+"BookRepository" --> "BookService" : return Optional
+deactivate "BookRepository"
+end
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" --> "Client" : HTTP Response (java.util.Optional)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.deleteBook ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Database Operation
+"BookService" -> "BookRepository" : deleteById(Object arg0)
+activate "BookRepository"
+"BookRepository" -> "BookDB" : DELETE
+activate "BookDB"
+"BookDB" --> "BookRepository" : return data
+deactivate "BookDB"
+"BookRepository" --> "BookService" : return void
+deactivate "BookRepository"
+end
+"BookService" -> "BookRepository" : deleteById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : void
+deactivate "BookRepository"
+"BookService" --> "Client" : HTTP Response (void)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.getBookWithAuthor ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Database Operation
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" -> "BookDB" : READ
+activate "BookDB"
+"BookDB" --> "BookRepository" : return data
+deactivate "BookDB"
+"BookRepository" --> "BookService" : return Optional
+deactivate "BookRepository"
+end
+"BookService" -> "BookRepository" : findById(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Optional
+deactivate "BookRepository"
+"BookService" --> "Client" : HTTP Response (java.util.Optional)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.lambda$getBookWithAuthor$1 ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Reactive Flow
+"BookService" -> "Mono" : block()
+activate "Mono"
+"Mono" --> "BookService" : Object
+deactivate "Mono"
+end
+"BookService" --> "Client" : HTTP Response (java.lang.String)
+deactivate "BookService"
+
+== com/example/service/impl/BookServiceImpl.lambda$updateBook$0 ==
+"Client" -> "BookService" : null null
+activate "BookService"
+note right of "BookService"
+  API Entry Point
+end note
+group Database Operation
+"BookService" -> "BookRepository" : save(Object arg0)
+activate "BookRepository"
+"BookRepository" -> "BookDB" : CREATE
+activate "BookDB"
+"BookDB" --> "BookRepository" : return data
+deactivate "BookDB"
+"BookRepository" --> "BookService" : return Object
+deactivate "BookRepository"
+end
+"BookService" -> "BookRepository" : save(Object arg0)
+activate "BookRepository"
+"BookRepository" --> "BookService" : Object
+deactivate "BookRepository"
+"BookService" --> "Client" : HTTP Response (com.example.model.Book)
+deactivate "BookService"
+
+== com/example/service/AuthorServiceClient.<init> ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note right of "AuthorServiceClient"
+  API Entry Point
+end note
+"AuthorServiceClient" --> "Client" : HTTP Response (void)
+deactivate "AuthorServiceClient"
+
+== com/example/service/AuthorServiceClient.getAuthor ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note right of "AuthorServiceClient"
+  API Entry Point
+end note
+"AuthorServiceClient" --> "Client" : HTTP Response (reactor.core.publisher.Mono)
+deactivate "AuthorServiceClient"
+
+== com/example/service/AuthorServiceClient.lambda$getAuthor$1 ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note right of "AuthorServiceClient"
+  API Entry Point
+end note
+group Reactive Flow
+"AuthorServiceClient" -> "Mono" : error(Throwable arg0)
+activate "Mono"
+"Mono" --> "AuthorServiceClient" : Mono
+deactivate "Mono"
+end
+"AuthorServiceClient" --> "Client" : HTTP Response (reactor.core.publisher.Mono)
+deactivate "AuthorServiceClient"
+
+== com/example/service/AuthorServiceClient.lambda$getAuthor$0 ==
+"Client" -> "AuthorServiceClient" : null null
+activate "AuthorServiceClient"
+note right of "AuthorServiceClient"
+  API Entry Point
+end note
+group Reactive Flow
+"AuthorServiceClient" -> "Mono" : error(Throwable arg0)
+activate "Mono"
+"Mono" --> "AuthorServiceClient" : Mono
+deactivate "Mono"
+end
+group Reactive Flow
+"AuthorServiceClient" -> "Mono" : error(Throwable arg0)
+activate "Mono"
+"Mono" --> "AuthorServiceClient" : Mono
+deactivate "Mono"
+end
+"AuthorServiceClient" --> "Client" : HTTP Response (reactor.core.publisher.Mono)
+deactivate "AuthorServiceClient"
+
+@enduml

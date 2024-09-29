@@ -60,27 +60,34 @@ public class SequenceDiagramGenerator {
   }
 
   public String generateSequenceDiagram(List<ClassNode> allClasses, Map<String, ClassInfo> sourceCodeInfo) {
-    logger.info("Starting sequence diagram generation for {} classes",
-        allClasses.size());
+    logger.info("Starting sequence diagram generation for {} classes", allClasses.size());
     StringBuilder sb = new StringBuilder();
     initializeDiagram(sb);
 
-    // Scan target folder for runtime-generated classes
+    logger.info("Scanning target folder for runtime-generated classes");
     List<ClassNode> runtimeClasses = scanTargetFolder();
+    logger.info("Scanning target folder for runtimeClasses {}", runtimeClasses);
     allClasses.addAll(runtimeClasses);
+    logger.info("Scanning target folder for allClasses {}", allClasses);
 
+    logger.info("Mapping implementations to interfaces");
     mapImplementationsToInterfaces(allClasses);
+    logger.info("Finding WebClient host names");
     findWebClientHostNames(allClasses);
+    logger.info("Mapping method annotations");
     mapMethodAnnotations(allClasses);
 
+    logger.info("Extracting exposed APIs");
     List<APIInfo> exposedApis = new APIInventoryExtractor().extractExposedAPIs(allClasses);
+    logger.info("Finding external calls");
     List<ExternalCallInfo> externalCalls = new ExternalCallScanner().findExternalCalls(allClasses);
 
-    logger.info("Found {} exposed APIs and {} external calls",
-        exposedApis.size(), externalCalls.size());
+    logger.info("Found {} exposed APIs and {} external calls", exposedApis.size(), externalCalls.size());
 
+    logger.info("Appending participants to the diagram");
     appendParticipants(sb, allClasses, externalCalls);
 
+    logger.info("Generating sequences for each API");
     for (APIInfo api : exposedApis) {
       generateSequenceForAPI(sb, api, allClasses, externalCalls);
     }
@@ -93,12 +100,12 @@ public class SequenceDiagramGenerator {
   private List<ClassNode> scanTargetFolder() {
     List<ClassNode> runtimeClasses = new ArrayList<>();
     Path targetPath = Paths.get("target", "classes");
-    logger.info("scanTargetFolder: {}", targetPath);
+    logger.info("Scanning target folder: {}", targetPath);
     try (Stream<Path> walk = Files.walk(targetPath)) {
       walk.filter(Files::isRegularFile)
           .filter(p -> p.toString().endsWith(".class"))
           .forEach(classFile -> {
-            logger.info("classFile: {}", classFile);
+            logger.debug("Processing class file: {}", classFile);
             try {
               byte[] classBytes = Files.readAllBytes(classFile);
               ClassReader classReader = new ClassReader(classBytes);
@@ -117,6 +124,7 @@ public class SequenceDiagramGenerator {
       logger.error("Error scanning target folder", e);
     }
 
+    logger.info("Found {} runtime-generated classes", runtimeClasses.size());
     return runtimeClasses;
   }
 
@@ -155,6 +163,7 @@ public class SequenceDiagramGenerator {
 
     ClassNode controllerClass = findImplementationClass(allClasses, getClassName(api.getMethodName()));
     if (controllerClass != null) {
+      detectServiceInjections(sb, controllerClass, controllerName);
       MethodNode method = findMethodByName(controllerClass, getMethodName(api.getMethodName()));
       if (method != null) {
         processedMethods.clear();
@@ -177,13 +186,27 @@ public class SequenceDiagramGenerator {
 
   private void processMethodHighLevel(StringBuilder sb, MethodNode method, List<ClassNode> allClasses,
       int depth, String callerName, List<ExternalCallInfo> externalCalls) {
+    logger.debug("Processing method: {} at depth {}", method.name, depth);
     if (depth > MAX_DEPTH || processedMethods.contains(method.name)) {
+      logger.debug("Skipping method {} due to depth limit or already processed", method.name);
       return;
     }
-    logger.info("Processing method: {} at depth {}", method.name, depth);
-    logger.info("Caller: {}", callerName);
     processedMethods.add(method.name);
     String interfaceCallerName = getInterfaceName(getSimpleClassName(callerName));
+
+    ClassNode callerClass = findImplementationClass(allClasses, callerName);
+    if (callerClass != null) {
+        detectServiceInjections(sb, callerClass, interfaceCallerName);
+    }
+
+    analyzeMethodChain(sb, method, allClasses, depth, callerName, externalCalls);
+
+    logger.debug("Processing database interactions for method: {}", method.name);
+    processDatabaseInteractions(sb, method, interfaceCallerName);
+    logger.debug("Processing external calls for method: {}", method.name);
+    processExternalCalls(sb, method, interfaceCallerName, externalCalls);
+
+    processAsyncOperations(sb, method, allClasses, depth, callerName, externalCalls);
 
     for (AbstractInsnNode insn : method.instructions) {
       if (insn instanceof MethodInsnNode) {
@@ -192,14 +215,136 @@ public class SequenceDiagramGenerator {
         String interfaceCalleeName = getInterfaceName(getSimpleClassName(calleeName));
 
         if (isSignificantCall(interfaceCalleeName)) {
-          processMethodCall(sb, methodInsn, allClasses, depth, interfaceCallerName, new HashMap<>(), externalCalls,
+          logger.debug("Processing significant call: {} -> {}", interfaceCallerName, interfaceCalleeName);
+          processMethodCall(sb, methodInsn, allClasses, depth + 1, interfaceCallerName, new HashMap<>(), externalCalls,
               new HashSet<>());
         }
       }
     }
+    logger.debug("Finished processing method: {}", method.name);
+  }
 
-    processExternalCalls(sb, method, interfaceCallerName, externalCalls);
-    processDatabaseInteractions(sb, method, interfaceCallerName);
+  private void analyzeMethodChain(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
+      String callerName, List<ExternalCallInfo> externalCalls) {
+    logger.debug("Analyzing method chain for: {}", method.name);
+    String interfaceCallerName = getInterfaceName(getSimpleClassName(callerName));
+
+    // Process controller → service → repository pattern
+    if (interfaceCallerName.endsWith("Controller")) {
+      processControllerServiceRepositoryChain(sb, method, allClasses, depth, interfaceCallerName, externalCalls);
+    }
+
+    // Process event-driven flows
+    processEventDrivenFlows(sb, method, allClasses, depth, interfaceCallerName, externalCalls);
+  }
+
+  private void processControllerServiceRepositoryChain(StringBuilder sb, MethodNode method, List<ClassNode> allClasses,
+      int depth, String callerName, List<ExternalCallInfo> externalCalls) {
+    for (AbstractInsnNode insn : method.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        String calleeName = getSimpleClassName(methodInsn.owner);
+        String interfaceCalleeName = getInterfaceName(calleeName);
+
+        if (interfaceCalleeName.endsWith("Service")) {
+          logger.debug("Found service call: {} -> {}", callerName, interfaceCalleeName);
+          processMethodCall(sb, methodInsn, allClasses, depth + 1, callerName, new HashMap<>(), externalCalls,
+              new HashSet<>());
+
+          // Look for repository calls within the service
+          ClassNode serviceClass = findImplementationClass(allClasses, methodInsn.owner);
+          if (serviceClass != null) {
+            MethodNode serviceMethod = findMethodByName(serviceClass, methodInsn.name);
+            if (serviceMethod != null) {
+              processRepositoryCalls(sb, serviceMethod, allClasses, depth + 2, interfaceCalleeName, externalCalls);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private void processRepositoryCalls(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
+      String callerName, List<ExternalCallInfo> externalCalls) {
+    for (AbstractInsnNode insn : method.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        String calleeName = getSimpleClassName(methodInsn.owner);
+        String interfaceCalleeName = getInterfaceName(calleeName);
+
+        if (interfaceCalleeName.endsWith("Repository")) {
+          logger.debug("Found repository call: {} -> {}", callerName, interfaceCalleeName);
+          processMethodCall(sb, methodInsn, allClasses, depth, callerName, new HashMap<>(), externalCalls,
+              new HashSet<>());
+        }
+      }
+    }
+  }
+
+  private void processEventDrivenFlows(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
+      String callerName, List<ExternalCallInfo> externalCalls) {
+    if (isEventListener(method)) {
+      logger.debug("Found event listener: {}.{}", callerName, method.name);
+      sb.append("note over ").append(callerName).append(" : @EventListener\n");
+      processMethodHighLevel(sb, method, allClasses, depth + 1, callerName, externalCalls);
+    }
+  }
+
+  private boolean isEventListener(MethodNode method) {
+    return method.visibleAnnotations != null &&
+        method.visibleAnnotations.stream().anyMatch(a -> a.desc.contains("EventListener"));
+  }
+
+  private void processAsyncOperations(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
+      String callerName, List<ExternalCallInfo> externalCalls) {
+    logger.debug("Processing async operations for: {}.{}", callerName, method.name);
+
+    if (isAsyncMethod(callerName, method)) {
+      sb.append("group Asynchronous Operation\n");
+      processMethodHighLevel(sb, method, allClasses, depth + 1, callerName, externalCalls);
+      sb.append("end\n");
+    }
+
+    processCompletableFuture(sb, method, allClasses, depth, callerName, externalCalls);
+    processReactiveFlows(sb, method, allClasses, depth, callerName, externalCalls);
+  }
+
+  private void processCompletableFuture(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
+      String callerName, List<ExternalCallInfo> externalCalls) {
+    for (AbstractInsnNode insn : method.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        if (methodInsn.owner.contains("CompletableFuture")) {
+          logger.debug("Found CompletableFuture operation: {}.{}", callerName, methodInsn.name);
+          sb.append("group CompletableFuture\n");
+          processMethodCall(sb, methodInsn, allClasses, depth + 1, callerName, new HashMap<>(), externalCalls,
+              new HashSet<>());
+          sb.append("end\n");
+        }
+      }
+    }
+  }
+
+  private void processReactiveFlows(StringBuilder sb, MethodNode method, List<ClassNode> allClasses, int depth,
+      String callerName, List<ExternalCallInfo> externalCalls) {
+    for (AbstractInsnNode insn : method.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        if (isReactiveType(methodInsn.owner)) {
+          logger.debug("Found reactive operation: {}.{}", callerName, methodInsn.name);
+          sb.append("group Reactive Flow\n");
+          processMethodCall(sb, methodInsn, allClasses, depth + 1, callerName, new HashMap<>(), externalCalls,
+              new HashSet<>());
+          sb.append("end\n");
+        }
+      }
+    }
+  }
+
+  private boolean isReactiveType(String className) {
+    return className.contains("reactor/core/publisher/Mono") ||
+        className.contains("reactor/core/publisher/Flux") ||
+        className.contains("io/reactivex");
   }
 
   private String getInterfaceName(String className) {
@@ -1315,5 +1460,22 @@ public class SequenceDiagramGenerator {
       }
     }
     return sequence.toString();
+  }
+
+  private void detectServiceInjections(StringBuilder sb, ClassNode classNode, String callerName) {
+    logger.debug("Detecting service injections for: {}", callerName);
+    for (FieldNode field : classNode.fields) {
+        if (isServiceField(field)) {
+            String injectedServiceName = getSimpleClassName(Type.getType(field.desc).getClassName());
+            logger.debug("Found injected service: {} in {}", injectedServiceName, callerName);
+            sb.append("note over ").append(callerName).append(" : Injected ").append(injectedServiceName).append("\n");
+        }
+    }
+  }
+
+  private boolean isServiceField(FieldNode field) {
+    return field.visibleAnnotations != null &&
+           field.visibleAnnotations.stream().anyMatch(a -> 
+               a.desc.contains("Autowired") || a.desc.contains("Inject"));
   }
 }

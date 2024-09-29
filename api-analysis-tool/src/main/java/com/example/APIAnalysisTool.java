@@ -1,12 +1,19 @@
 package com.example;
 
+import liquibase.changelog.ChangeSet;
+import liquibase.changelog.DatabaseChangeLog;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -15,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -35,6 +43,7 @@ public class APIAnalysisTool {
   private final CSVGenerator csvGenerator;
   private final DocumentationGenerator documentationGenerator;
   private final ExternalCallScanner externalCallScanner;
+  private final DatabaseChangelogScanner databaseChangelogScanner;
 
   private String latestSequenceDiagram;
   private String latestClassDiagram;
@@ -49,6 +58,7 @@ public class APIAnalysisTool {
   private String latestCsvPath;
   private String latestDocumentationPath;
   private String latestHtmlDiffPath;
+  private List<DatabaseChangelogScanner.DatabaseChange> latestDatabaseChanges;
 
   public APIAnalysisTool() {
     this.sequenceDiagramGenerator = new SequenceDiagramGenerator();
@@ -62,6 +72,7 @@ public class APIAnalysisTool {
     this.csvGenerator = new CSVGenerator();
     this.documentationGenerator = new DocumentationGenerator();
     this.externalCallScanner = new ExternalCallScanner();
+    this.databaseChangelogScanner = new DatabaseChangelogScanner();
   }
 
   public AnalysisResult analyzeProject(String projectPath, String existingDesignPath, String projectName)
@@ -88,10 +99,13 @@ public class APIAnalysisTool {
     String existingDiagram = readExistingDesign(existingDesignPath);
     latestComparisonResult = designComparator.compare(latestClassDiagram, existingDiagram, projectName);
 
-    latestAPIInventory = latestExposedAPIInventory; // Set latestAPIInventory to latestExposedAPIInventory
+    latestAPIInventory = latestExposedAPIInventory;
     latestCsvPath = generateCSV(projectName);
     latestDocumentationPath = generateDocumentation(projectName);
     latestHtmlDiffPath = generateHtmlDiff(projectName);
+
+    // Add database changelog scanning
+    latestDatabaseChanges = scanDatabaseChangeLogs(projectPath);
 
     saveDiagrams(projectName);
 
@@ -99,7 +113,7 @@ public class APIAnalysisTool {
     return new AnalysisResult(latestSequenceDiagram, latestClassDiagram, latestComponentDiagram,
         latestStateDiagram, latestActivityDiagram, latestComparisonResult, latestExposedAPIInventory,
         latestUtilizedServiceInventory, latestExternalCalls, latestCsvPath, latestDocumentationPath,
-        latestHtmlDiffPath);
+        latestHtmlDiffPath, latestDatabaseChanges);
   }
 
   private void saveDiagrams(String projectName) {
@@ -348,5 +362,131 @@ public class APIAnalysisTool {
 
   public List<APIInfo> getLatestExposedAPIInventory() {
     return latestExposedAPIInventory;
+  }
+
+  public List<DatabaseChangelogScanner.DatabaseChange> scanDatabaseChangeLogs(String projectPath) throws IOException {
+    logger.info("Scanning database changelogs for project: {}", projectPath);
+    List<DatabaseChangelogScanner.DatabaseChange> allChanges = new ArrayList<>();
+    Path path = Paths.get(projectPath);
+
+    if (Files.isDirectory(path)) {
+      scanAllFiles(path, allChanges);
+    } else if (projectPath.endsWith(".jar") || projectPath.endsWith(".war")) {
+      scanArchiveFile(projectPath, allChanges);
+    } else if (projectPath.endsWith(".zip")) {
+      Path tempDir = Files.createTempDirectory("unzipped_project");
+      unzipFile(path, tempDir);
+      scanAllFiles(tempDir, allChanges);
+      deleteDirectory(tempDir);
+    } else {
+      logger.error("Unsupported file type for database changelog scanning: {}", projectPath);
+    }
+
+    logger.info("Total database changes found: {}", allChanges.size());
+    this.latestDatabaseChanges = allChanges;
+    return allChanges;
+  }
+
+  private void scanAllFiles(Path directory, List<DatabaseChangelogScanner.DatabaseChange> allChanges)
+      throws IOException {
+    Path masterChangelogPath = findMasterChangelog(directory);
+    if (masterChangelogPath != null) {
+      scanMasterChangelog(masterChangelogPath, allChanges);
+    } else {
+      // Fallback to scanning all files if no master changelog is found
+      scanAllChangelogFiles(directory, allChanges);
+    }
+  }
+
+  private Path findMasterChangelog(Path directory) throws IOException {
+    try (Stream<Path> walk = Files.walk(directory)) {
+      return walk
+          .filter(p -> !Files.isDirectory(p))
+          .filter(p -> p.getFileName().toString().toLowerCase().contains("master") &&
+              p.toString().endsWith(".xml"))
+          .findFirst()
+          .orElse(null);
+    }
+  }
+
+  private void scanMasterChangelog(Path masterChangelogPath, List<DatabaseChangelogScanner.DatabaseChange> allChanges)
+      throws IOException {
+    List<String> includedFiles = databaseChangelogScanner.extractIncludedFiles(masterChangelogPath);
+    for (String includedFile : includedFiles) {
+      Path includedPath = masterChangelogPath.getParent().resolve(includedFile);
+      if (Files.exists(includedPath)) {
+        List<DatabaseChangelogScanner.DatabaseChange> changes = databaseChangelogScanner
+            .scanChangelog(includedPath.toString());
+        allChanges.addAll(changes);
+      } else {
+        logger.warn("Included changelog file not found: {}", includedPath);
+      }
+    }
+  }
+
+  private void scanAllChangelogFiles(Path directory, List<DatabaseChangelogScanner.DatabaseChange> allChanges)
+      throws IOException {
+    try (Stream<Path> walk = Files.walk(directory)) {
+      List<Path> changeLogFiles = walk
+          .filter(p -> !Files.isDirectory(p))
+          .filter(p -> {
+            String fileName = p.getFileName().toString().toLowerCase();
+            return (fileName.endsWith(".xml") || fileName.endsWith(".sql") ||
+                fileName.endsWith(".yaml") || fileName.endsWith(".yml") ||
+                fileName.endsWith(".json"));
+          })
+          .collect(Collectors.toList());
+
+      logger.info("Found {} potential changelog files", changeLogFiles.size());
+
+      for (Path changeLogFile : changeLogFiles) {
+        logger.debug("Scanning changelog file: {}", changeLogFile);
+        List<DatabaseChangelogScanner.DatabaseChange> changes = databaseChangelogScanner
+            .scanChangelog(changeLogFile.toString());
+        allChanges.addAll(changes);
+      }
+    }
+  }
+
+  private void scanArchiveFile(String archivePath, List<DatabaseChangelogScanner.DatabaseChange> allChanges)
+      throws IOException {
+    try (JarFile jarFile = new JarFile(archivePath)) {
+      Enumeration<JarEntry> entries = jarFile.entries();
+      while (entries.hasMoreElements()) {
+        JarEntry entry = entries.nextElement();
+        String entryName = entry.getName().toLowerCase();
+        if (!entry.isDirectory() &&
+            (entryName.contains("changelog") || entryName.contains("liquibase")) &&
+            (entryName.endsWith(".xml") || entryName.endsWith(".sql") ||
+                entryName.endsWith(".yaml") || entryName.endsWith(".yml") ||
+                entryName.endsWith(".json"))) {
+          try (InputStream is = jarFile.getInputStream(entry)) {
+            List<DatabaseChangelogScanner.DatabaseChange> changes = databaseChangelogScanner
+                .scanChangelog(is, entry.getName());
+            allChanges.addAll(changes);
+          }
+        }
+      }
+    }
+  }
+
+  private void deleteDirectory(Path directory) throws IOException {
+    Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+        Files.delete(file);
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+        Files.delete(dir);
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
+  public List<DatabaseChangelogScanner.DatabaseChange> getLatestDatabaseChanges() {
+    return latestDatabaseChanges;
   }
 }
