@@ -57,6 +57,22 @@ public class ExternalCallScanner {
   }
 
   private String extractBaseUrl(ClassNode classNode, Map<String, String> classFields) {
+    // Check for @Value annotation on fields
+    for (FieldNode field : classNode.fields) {
+      if (field.visibleAnnotations != null) {
+        for (AnnotationNode annotation : field.visibleAnnotations) {
+          if (annotation.desc.contains("Value")) {
+            List<Object> values = annotation.values;
+            if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
+              String propertyKey = (String) values.get(1);
+              propertyKey = propertyKey.replaceAll("[\\$\\{\\}]", "");
+              return resolvePropertyValue(propertyKey);
+            }
+          }
+        }
+      }
+    }
+
     // Check for @Value annotation on constructor parameters
     for (MethodNode method : classNode.methods) {
       if (method.name.equals("<init>")) {

@@ -84,5 +84,5 @@
 - **Description:** Method: getAuthor
 - **Parameters:**
   - id
-- **Response Type:** com.example.dto.AuthorDTO
+- **Response Type:** reactor.core.publisher.Mono
 
