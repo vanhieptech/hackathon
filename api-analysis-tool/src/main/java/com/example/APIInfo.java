@@ -15,11 +15,12 @@ public class APIInfo {
   private List<String> serviceDependencies;
   private String returnType;
   private List<ParameterInfo> parameters;
+  private String className;
   private boolean isAsync;
 
   public APIInfo(String serviceName, String apiName, String methodName, String description, String apiEndpoint,
       String path, String httpMethod, String version, List<String> serviceDependencies,
-      String returnType, List<ParameterInfo> parameters, boolean isAsync) {
+      String returnType, List<ParameterInfo> parameters, String className, boolean isAsync) {
     this.serviceName = serviceName;
     this.apiName = apiName;
     this.description = description;
@@ -32,6 +33,15 @@ public class APIInfo {
     this.returnType = returnType;
     this.parameters = parameters;
     this.isAsync = isAsync;
+    this.className = className;
+  }
+
+  public String getClassName() {
+    return className;
+  }
+
+  public void setClassName(String className) {
+    this.className = className;
   }
 
   // Getters

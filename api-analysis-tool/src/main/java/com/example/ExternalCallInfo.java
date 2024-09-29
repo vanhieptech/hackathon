@@ -15,6 +15,8 @@ public class ExternalCallInfo {
   private String operation;
   private String serviceName;
   private String description;
+  private String callerClassName;
+  private String callerMethodName;
 
   public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String purpose) {
     this.url = url;
@@ -36,7 +38,7 @@ public class ExternalCallInfo {
 
   public ExternalCallInfo(String url, String httpMethod, List<String> parameters, String purpose, String responseType,
       String callerMethod, String fallbackMethod, String sdkName, String operation, String serviceName,
-      String description) {
+      String description, String callerClassName, String callerMethodName) {
     this.url = url;
     this.httpMethod = httpMethod;
     this.parameters = parameters;
@@ -48,6 +50,25 @@ public class ExternalCallInfo {
     this.operation = operation;
     this.serviceName = serviceName;
     this.description = description;
+    this.callerClassName = callerClassName;
+    this.callerMethodName = callerMethodName;
+  }
+
+  public String getCallerMethodName() {
+    return callerMethodName;
+  }
+
+  public void setCallerMethodName(String callerMethodName) {
+    this.callerMethodName = callerMethodName;
+  }
+
+  // Add getter and setter for callerClassName
+  public String getCallerClassName() {
+    return callerClassName;
+  }
+
+  public void setCallerClassName(String callerClassName) {
+    this.callerClassName = callerClassName;
   }
 
   public String getServiceName() {

@@ -33,7 +33,6 @@ public class APIAnalysisTool {
   private static final Logger logger = LoggerFactory.getLogger(APIAnalysisTool.class);
 
   private Map<String, AnalysisResult> projectResults = new HashMap<>();
-  private final SequenceDiagramGenerator sequenceDiagramGenerator;
   private final ClassDiagramGenerator classDiagramGenerator;
   private final ComponentDiagramGenerator componentDiagramGenerator;
   private final StateDiagramGenerator stateDiagramGenerator;
@@ -60,7 +59,6 @@ public class APIAnalysisTool {
   private List<DatabaseChangelogScanner.DatabaseChange> latestDatabaseChanges;
 
   public APIAnalysisTool() {
-    this.sequenceDiagramGenerator = new SequenceDiagramGenerator();
     this.classDiagramGenerator = new ClassDiagramGenerator();
     this.componentDiagramGenerator = new ComponentDiagramGenerator();
     this.stateDiagramGenerator = new StateDiagramGenerator();
@@ -87,9 +85,11 @@ public class APIAnalysisTool {
 
     ExternalCallScanner scanner = new ExternalCallScanner(configProperties, classImports);
     List<ExternalCallInfo> externalCalls = scanner.findExternalCalls(allClasses);
+    // Update the SequenceDiagramGenerator constructor if necessary
+    SequenceDiagramGenerator sequenceDiagramGenerator = new SequenceDiagramGenerator(configProperties, classImports);
 
-    latestSequenceDiagram = sequenceDiagramGenerator.generateSequenceDiagram(allClasses, sourceCodeInfo,
-        configProperties, projectName);
+    // Generate the sequence diagram
+    latestSequenceDiagram = sequenceDiagramGenerator.generateSequenceDiagram(allClasses);
     latestClassDiagram = classDiagramGenerator.generateClassDiagram(allClasses, sourceCodeInfo);
     latestComponentDiagram = componentDiagramGenerator.generateComponentDiagram(allClasses, sourceCodeInfo);
     latestStateDiagram = stateDiagramGenerator.generateStateDiagram(allClasses);
@@ -258,7 +258,7 @@ public class APIAnalysisTool {
         .toList();
 
     return switch (diagramType) {
-      case "sequence" -> sequenceDiagramGenerator.combineDiagrams(diagrams);
+      // case "sequence" -> sequenceDiagramGenerator.combineDiagrams(diagrams);
       case "class" -> classDiagramGenerator.combineDiagrams(diagrams);
       case "component" -> componentDiagramGenerator.combineDiagrams(diagrams);
       case "state" -> stateDiagramGenerator.combineDiagrams(diagrams);

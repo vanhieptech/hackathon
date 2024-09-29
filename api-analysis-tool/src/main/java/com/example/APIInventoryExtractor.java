@@ -61,6 +61,7 @@ public class APIInventoryExtractor {
     String description = extractDescription(methodNode);
     String apiEndpoint = constructApiEndpoint(methodPath);
     String methodName = methodNode.name;
+    String className = classNode.name;
     String version = extractVersion(classNode, methodNode);
     List<String> serviceDependencies = extractServiceDependencies(methodNode);
     String returnType = extractReturnType(methodNode);
@@ -79,6 +80,7 @@ public class APIInventoryExtractor {
         serviceDependencies,
         returnType,
         parameters,
+        className,
         isAsync);
   }
 
