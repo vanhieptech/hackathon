@@ -176,12 +176,32 @@ public class APIInventoryExtractor {
   }
 
   private String extractServiceName(ClassNode classNode) {
-    // Remove file extension if present
-    int dotIndex = fileName.lastIndexOf('.');
-    if (dotIndex > 0) {
-      return fileName.substring(0, dotIndex);
+    // First, try to get the service name from spring.application.name
+    String serviceName = configProperties.get("spring.application.name");
+
+    // If not found, use the fileName without version
+    if (serviceName == null || serviceName.isEmpty()) {
+      serviceName = removeVersion(fileName);
     }
-    return fileName;
+
+    // If still not found, fallback to the original method
+    if (serviceName == null || serviceName.isEmpty()) {
+      serviceName = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
+      serviceName = serviceName.replaceAll("(Controller|Service|Resource|Api)$", "");
+    }
+
+    return serviceName;
+  }
+
+  private String removeVersion(String fileName) {
+    if (fileName == null || fileName.isEmpty()) {
+      return null;
+    }
+    // Remove file extension if present
+    fileName = fileName.replaceFirst("[.][^.]+$", "");
+    // Remove version number (assuming version is at the end and separated by a
+    // hyphen)
+    return fileName.replaceFirst("-\\d+(\\.\\d+)*$", "");
   }
 
   private String extractApiName(MethodNode methodNode) {

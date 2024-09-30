@@ -4,7 +4,7 @@
 
 ### getAllBooks
 
-- **Service Name:** book-service-0.0
+- **Service Name:** vh-book-store
 - **HTTP Method:** GET
 - **API Endpoint:** http://vh-book-store:8089/api/books
 - **Description:** getAllBooks
@@ -15,7 +15,7 @@
 
 ### getBookById
 
-- **Service Name:** book-service-0.0
+- **Service Name:** vh-book-store
 - **HTTP Method:** GET
 - **API Endpoint:** http://vh-book-store:8089/api/books/{id}
 - **Description:** getBookById
@@ -27,7 +27,7 @@
 
 ### createBook
 
-- **Service Name:** book-service-0.0
+- **Service Name:** vh-book-store
 - **HTTP Method:** POST
 - **API Endpoint:** http://vh-book-store:8089/api/books
 - **Description:** createBook
@@ -39,7 +39,7 @@
 
 ### updateBook
 
-- **Service Name:** book-service-0.0
+- **Service Name:** vh-book-store
 - **HTTP Method:** PUT
 - **API Endpoint:** http://vh-book-store:8089/api/books/{id}
 - **Description:** updateBook
@@ -52,7 +52,7 @@
 
 ### deleteBook
 
-- **Service Name:** book-service-0.0
+- **Service Name:** vh-book-store
 - **HTTP Method:** DELETE
 - **API Endpoint:** http://vh-book-store:8089/api/books/{id}
 - **Description:** deleteBook
@@ -64,7 +64,7 @@
 
 ### getBookWithAuthor
 
-- **Service Name:** book-service-0.0
+- **Service Name:** vh-book-store
 - **HTTP Method:** GET
 - **API Endpoint:** http://vh-book-store:8089/api/books/{id}/with-author
 - **Description:** getBookWithAuthor
@@ -76,7 +76,7 @@
 
 ### getAuthorById
 
-- **Service Name:** book-service-0.0
+- **Service Name:** vh-book-store
 - **HTTP Method:** GET
 - **API Endpoint:** http://vh-book-store:8089/authors/{id}
 - **Description:** getAuthorById
@@ -91,8 +91,8 @@
 
 ### getAuthor
 
-- **Service Name:** AuthorService
-- **URL:** http://localhost:8081/api/authors/{id}
+- **Service Name:** vh-author
+- **URL:** http://vh-author:8081/api/authors/{id}
 - **HTTP Method:** GET
 - **Description:** Method: getAuthor
 - **Parameters:**

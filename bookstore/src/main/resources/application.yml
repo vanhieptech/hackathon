@@ -79,4 +79,4 @@ azure:
 
 author:
   service:
-    base-url: http://localhost:8081
+    base-url: http://vh-author:8081

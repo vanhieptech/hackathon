@@ -2,518 +2,522 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>API Analysis Tool</title>
-  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    .diagram-container {
-      width: 100%;
-      height: 600px;
-      border: 1px solid #ddd;
-      margin-top: 20px;
-      position: relative;
-      overflow: hidden;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Analysis Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .diagram-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
 
-    .diagram-controls {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1000;
-    }
+        .diagram-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
 
-    .diagram-controls button {
-      margin-left: 5px;
-    }
+        .diagram-controls button {
+            margin-left: 5px;
+        }
 
-    .mini-map {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      width: 200px;
-      height: 150px;
-      border: 1px solid #ddd;
-      overflow: hidden;
-      background-color: rgba(255, 255, 255, 0.8);
-    }
+        .mini-map {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 200px;
+            height: 150px;
+            border: 1px solid #ddd;
+            overflow: hidden;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
 
-    .mini-map svg {
-      width: 100%;
-      height: 100%;
-    }
+        .mini-map svg {
+            width: 100%;
+            height: 100%;
+        }
 
-    .mini-map-viewport {
-      position: absolute;
-      border: 2px solid red;
-      pointer-events: none;
-    }
+        .mini-map-viewport {
+            position: absolute;
+            border: 2px solid red;
+            pointer-events: none;
+        }
 
-    .fullscreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 9999;
-      background-color: white;
-    }
-  </style>
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            background-color: white;
+        }
+    </style>
 </head>
 
 <body>
-  <div id="app" class="container mt-5">
+<div id="app" class="container mt-5">
     <h1>API Analysis Tool</h1>
     <!-- Single Project Analysis Form -->
     <form @submit.prevent="analyzeProject">
-      <div class="mb-3">
-        <label for="projectFile" class="form-label">Project File (JAR):</label>
-        <input type="file" id="projectFile" ref="projectFile" class="form-control" accept=".jar" required>
-      </div>
-      <div class="mb-3">
-        <label for="designFile" class="form-label">Design File:</label>
-        <input type="file" id="designFile" ref="designFile" class="form-control" required>
-      </div>
-      <button type="submit" class="btn btn-primary">Analyze Project</button>
+        <div class="mb-3">
+            <label for="projectFile" class="form-label">Project File (JAR):</label>
+            <input type="file" id="projectFile" ref="projectFile" class="form-control" accept=".jar" required>
+        </div>
+        <div class="mb-3">
+            <label for="designFile" class="form-label">Design File:</label>
+            <input type="file" id="designFile" ref="designFile" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Analyze Project</button>
     </form>
 
     <!-- Multiple Projects Analysis Form -->
     <form @submit.prevent="analyzeProjects" class="mt-4">
-      <div class="mb-3">
-        <label for="projectFiles" class="form-label">Multiple Project Files (ZIP):</label>
-        <input type="file" id="projectFiles" ref="projectFiles" class="form-control" multiple accept=".zip" required>
-      </div>
-      <button type="submit" class="btn btn-primary">Analyze Multiple Projects</button>
+        <div class="mb-3">
+            <label for="projectFiles" class="form-label">Multiple Project Files (ZIP):</label>
+            <input type="file" id="projectFiles" ref="projectFiles" class="form-control" multiple accept=".zip"
+                   required>
+        </div>
+        <button type="submit" class="btn btn-primary">Analyze Multiple Projects</button>
     </form>
 
     <div v-if="result" class="mt-5">
-      <h2>Analysis Results</h2>
+        <h2>Analysis Results</h2>
 
-      <ul class="nav nav-tabs" id="myTab" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="sequence-tab" data-bs-toggle="tab" data-bs-target="#sequence"
-            type="button" role="tab" aria-controls="sequence" aria-selected="true">Sequence Diagram
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="class-tab" data-bs-toggle="tab" data-bs-target="#class" type="button" role="tab"
-            aria-controls="class" aria-selected="false">Class Diagram
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="component-tab" data-bs-toggle="tab" data-bs-target="#component" type="button"
-            role="tab" aria-controls="component" aria-selected="false">Component Diagram
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="state-tab" data-bs-toggle="tab" data-bs-target="#state" type="button" role="tab"
-            aria-controls="state" aria-selected="false">State Diagram
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button"
-            role="tab" aria-controls="activity" aria-selected="false">Activity Diagram
-          </button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="database-changelogs-tab" data-bs-toggle="tab"
-            data-bs-target="#database-changelogs" type="button" role="tab" aria-controls="database-changelogs"
-            aria-selected="false">Database Changelogs</button>
-        </li>
-      </ul>
-      <div class="tab-content" id="myTabContent">
-        <div class="tab-pane fade show active" id="sequence" role="tabpanel" aria-labelledby="sequence-tab">
-          <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['sequence-diagram'] }">
-            <div class="diagram-controls">
-              <button @click="zoomIn('sequence-diagram')" class="btn btn-sm btn-secondary">+</button>
-              <button @click="zoomOut('sequence-diagram')" class="btn btn-sm btn-secondary">-</button>
-              <button @click="resetZoom('sequence-diagram')" class="btn btn-sm btn-secondary">Reset</button>
-              <button @click="toggleFullscreen('sequence-diagram')" class="btn btn-sm btn-secondary">
-                {{ isFullscreen['sequence-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
-              </button>
-              <button @click="saveViewState('sequence-diagram')" class="btn btn-sm btn-secondary">Save View</button>
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="sequence-tab" data-bs-toggle="tab" data-bs-target="#sequence"
+                        type="button" role="tab" aria-controls="sequence" aria-selected="true">Sequence Diagram
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="class-tab" data-bs-toggle="tab" data-bs-target="#class" type="button"
+                        role="tab"
+                        aria-controls="class" aria-selected="false">Class Diagram
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="component-tab" data-bs-toggle="tab" data-bs-target="#component"
+                        type="button"
+                        role="tab" aria-controls="component" aria-selected="false">Component Diagram
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="state-tab" data-bs-toggle="tab" data-bs-target="#state" type="button"
+                        role="tab"
+                        aria-controls="state" aria-selected="false">State Diagram
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button"
+                        role="tab" aria-controls="activity" aria-selected="false">Activity Diagram
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="database-changelogs-tab" data-bs-toggle="tab"
+                        data-bs-target="#database-changelogs" type="button" role="tab"
+                        aria-controls="database-changelogs"
+                        aria-selected="false">Database Changelogs
+                </button>
+            </li>
+        </ul>
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="sequence" role="tabpanel" aria-labelledby="sequence-tab">
+                <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['sequence-diagram'] }">
+                    <div class="diagram-controls">
+                        <button @click="zoomIn('sequence-diagram')" class="btn btn-sm btn-secondary">+</button>
+                        <button @click="zoomOut('sequence-diagram')" class="btn btn-sm btn-secondary">-</button>
+                        <button @click="resetZoom('sequence-diagram')" class="btn btn-sm btn-secondary">Reset</button>
+                        <button @click="toggleFullscreen('sequence-diagram')" class="btn btn-sm btn-secondary">
+                            {{ isFullscreen['sequence-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
+                        </button>
+                        <button @click="saveViewState('sequence-diagram')" class="btn btn-sm btn-secondary">Save View
+                        </button>
+                    </div>
+                    <div id="sequence-diagram" style="width: 100%; height: 600px;"></div>
+             
+                </div>
             </div>
-            <div id="sequence-diagram" style="width: 100%; height: 600px;"></div>
-            <div class="mini-map">
-              <div class="mini-map-viewport"></div>
-            </div>
-          </div>
-        </div>
-        <div class="tab-pane fade" id="class" role="tabpanel" aria-labelledby="class-tab">
-          <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['class-diagram'] }">
-            <div class="diagram-controls">
-              <button @click="zoomIn('class-diagram')" class="btn btn-sm btn-secondary">+</button>
-              <button @click="zoomOut('class-diagram')" class="btn btn-sm btn-secondary">-</button>
-              <button @click="resetZoom('class-diagram')" class="btn btn-sm btn-secondary">Reset</button>
-              <button @click="toggleFullscreen('class-diagram')" class="btn btn-sm btn-secondary">
-                {{ isFullscreen['class-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
-              </button>
-              <button @click="saveViewState('class-diagram')" class="btn btn-sm btn-secondary">Save View</button>
-            </div>
-            <div id="class-diagram" style="width: 100%; height: 600px;"></div>
-            <div class="mini-map">
-              <div class="mini-map-viewport"></div>
-            </div>
-          </div>
-        </div>
-        <div class="tab-pane fade" id="component" role="tabpanel" aria-labelledby="component-tab">
-          <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['component-diagram'] }">
-            <div class="diagram-controls">
-              <button @click="zoomIn('component-diagram')" class="btn btn-sm btn-secondary">+</button>
-              <button @click="zoomOut('component-diagram')" class="btn btn-sm btn-secondary">-</button>
-              <button @click="resetZoom('component-diagram')" class="btn btn-sm btn-secondary">Reset</button>
-              <button @click="toggleFullscreen('component-diagram')" class="btn btn-sm btn-secondary">
-                {{ isFullscreen['component-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
-              </button>
-              <button @click="saveViewState('component-diagram')" class="btn btn-sm btn-secondary">Save View</button>
-            </div>
-            <div id="component-diagram" style="width: 100%; height: 600px;"></div>
-            <div class="mini-map">
-              <div class="mini-map-viewport"></div>
-            </div>
-          </div>
-        </div>
-        <div class="tab-pane fade" id="state" role="tabpanel" aria-labelledby="state-tab">
-          <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['state-diagram'] }">
-            <div class="diagram-controls">
-              <button @click="zoomIn('state-diagram')" class="btn btn-sm btn-secondary">+</button>
-              <button @click="zoomOut('state-diagram')" class="btn btn-sm btn-secondary">-</button>
-              <button @click="resetZoom('state-diagram')" class="btn btn-sm btn-secondary">Reset</button>
-              <button @click="toggleFullscreen('state-diagram')" class="btn btn-sm btn-secondary">
-                {{ isFullscreen['state-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
-              </button>
-              <button @click="saveViewState('state-diagram')" class="btn btn-sm btn-secondary">Save View</button>
-            </div>
-            <div id="state-diagram" style="width: 100%; height: 600px;"></div>
-            <div class="mini-map">
-              <div class="mini-map-viewport"></div>
-            </div>
-          </div>
-        </div>
-        <div class="tab-pane fade" id="activity" role="tabpanel" aria-labelledby="activity-tab">
-          <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['activity-diagram'] }">
-            <div class="diagram-controls">
-              <button @click="zoomIn('activity-diagram')" class="btn btn-sm btn-secondary">+</button>
-              <button @click="zoomOut('activity-diagram')" class="btn btn-sm btn-secondary">-</button>
-              <button @click="resetZoom('activity-diagram')" class="btn btn-sm btn-secondary">Reset</button>
-              <button @click="toggleFullscreen('activity-diagram')" class="btn btn-sm btn-secondary">
-                {{ isFullscreen['activity-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
-              </button>
-              <button @click="saveViewState('activity-diagram')" class="btn btn-sm btn-secondary">Save View</button>
-            </div>
-            <div id="activity-diagram" style="width: 100%; height: 600px;"></div>
-            <div class="mini-map">
-              <div class="mini-map-viewport"></div>
-            </div>
-          </div>
-        </div>
-        <div class="tab-pane fade" id="database-changelogs" role="tabpanel" aria-labelledby="database-changelogs-tab">
-          <h3>Database Changelogs</h3>
-          <div v-for="changeLog in databaseChangeLogs" :key="changeLog.fileName">
-            <h4>{{ changeLog.fileName }}</h4>
-            <div v-for="changeSet in changeLog.changeSets" :key="changeSet.id">
-              <h5>ChangeSet: {{ changeSet.id }} (Author: {{ changeSet.author }})</h5>
-              <pre v-for="(sql, index) in changeSet.sqlStatements" :key="index">{{ sql }}</pre>
-            </div>
-          </div>
-        </div>
-      </div>
+            <div class="tab-pane fade" id="class" role="tabpanel" aria-labelledby="class-tab">
+                <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['class-diagram'] }">
+                    <div class="diagram-controls">
+                        <button @click="zoomIn('class-diagram')" class="btn btn-sm btn-secondary">+</button>
+                        <button @click="zoomOut('class-diagram')" class="btn btn-sm btn-secondary">-</button>
+                        <button @click="resetZoom('class-diagram')" class="btn btn-sm btn-secondary">Reset</button>
+                        <button @click="toggleFullscreen('class-diagram')" class="btn btn-sm btn-secondary">
+                            {{ isFullscreen['class-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
+                        </button>
+                        <button @click="saveViewState('class-diagram')" class="btn btn-sm btn-secondary">Save View
+                        </button>
+                    </div>
+                    <div id="class-diagram" style="width: 100%; height: 600px;"></div>
 
-      <div class="mt-4">
-        <h3>API Inventory</h3>
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Class Name</th>
-              <th>Method Name</th>
-              <th>Return Type</th>
-              <th>Parameters</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="api in result.apiInventory" :key="api.className + api.methodName">
-              <td>{{ api.className }}</td>
-              <td>{{ api.methodName }}</td>
-              <td>{{ api.returnType }}</td>
-              <td>{{ api.parameters }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="component" role="tabpanel" aria-labelledby="component-tab">
+                <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['component-diagram'] }">
+                    <div class="diagram-controls">
+                        <button @click="zoomIn('component-diagram')" class="btn btn-sm btn-secondary">+</button>
+                        <button @click="zoomOut('component-diagram')" class="btn btn-sm btn-secondary">-</button>
+                        <button @click="resetZoom('component-diagram')" class="btn btn-sm btn-secondary">Reset</button>
+                        <button @click="toggleFullscreen('component-diagram')" class="btn btn-sm btn-secondary">
+                            {{ isFullscreen['component-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
+                        </button>
+                        <button @click="saveViewState('component-diagram')" class="btn btn-sm btn-secondary">Save View
+                        </button>
+                    </div>
+                    <div id="component-diagram" style="width: 100%; height: 600px;"></div>
 
-      <div class="mt-4">
-        <h3>External Calls</h3>
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>Class Name</th>
-              <th>Method Name</th>
-              <th>External Call</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="call in result.externalCalls" :key="call.className + call.methodName + call.externalCall">
-              <td>{{ call.serviceName }}</td>
-              <td>{{ call.purpose }}</td>
-              <td>{{ call.url }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="state" role="tabpanel" aria-labelledby="state-tab">
+                <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['state-diagram'] }">
+                    <div class="diagram-controls">
+                        <button @click="zoomIn('state-diagram')" class="btn btn-sm btn-secondary">+</button>
+                        <button @click="zoomOut('state-diagram')" class="btn btn-sm btn-secondary">-</button>
+                        <button @click="resetZoom('state-diagram')" class="btn btn-sm btn-secondary">Reset</button>
+                        <button @click="toggleFullscreen('state-diagram')" class="btn btn-sm btn-secondary">
+                            {{ isFullscreen['state-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
+                        </button>
+                        <button @click="saveViewState('state-diagram')" class="btn btn-sm btn-secondary">Save View
+                        </button>
+                    </div>
+                    <div id="state-diagram" style="width: 100%; height: 600px;"></div>
 
-      <div class="mt-4 mb-5">
-        <h3>Downloads</h3>
-        <button @click="downloadFile('csv')" class="btn btn-secondary">Download API Inventory (CSV)</button>
-        <button @click="downloadFile('documentation')" class="btn btn-secondary">Download Documentation (MD)</button>
-        <button @click="downloadFile('htmlDiff')" class="btn btn-secondary">Download Design Comparison (HTML)</button>
-      </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="activity" role="tabpanel" aria-labelledby="activity-tab">
+                <div class="diagram-container" :class="{ 'fullscreen': isFullscreen['activity-diagram'] }">
+                    <div class="diagram-controls">
+                        <button @click="zoomIn('activity-diagram')" class="btn btn-sm btn-secondary">+</button>
+                        <button @click="zoomOut('activity-diagram')" class="btn btn-sm btn-secondary">-</button>
+                        <button @click="resetZoom('activity-diagram')" class="btn btn-sm btn-secondary">Reset</button>
+                        <button @click="toggleFullscreen('activity-diagram')" class="btn btn-sm btn-secondary">
+                            {{ isFullscreen['activity-diagram'] ? 'Exit Fullscreen' : 'Fullscreen' }}
+                        </button>
+                        <button @click="saveViewState('activity-diagram')" class="btn btn-sm btn-secondary">Save View
+                        </button>
+                    </div>
+                    <div id="activity-diagram" style="width: 100%; height: 600px;"></div>
+
+                </div>
+            </div>
+            <div class="tab-pane fade" id="database-changelogs" role="tabpanel"
+                 aria-labelledby="database-changelogs-tab">
+                <h3>Database Changelogs</h3>
+                <div v-for="changeLog in databaseChangeLogs" :key="changeLog.fileName">
+                    <h4>{{ changeLog.fileName }}</h4>
+                    <div v-for="changeSet in changeLog.changeSets" :key="changeSet.id">
+                        <h5>ChangeSet: {{ changeSet.id }} (Author: {{ changeSet.author }})</h5>
+                        <pre v-for="(sql, index) in changeSet.sqlStatements" :key="index">{{ sql }}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <h3>API Inventory</h3>
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Class Name</th>
+                    <th>Method Name</th>
+                    <th>Return Type</th>
+                    <th>Parameters</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="api in result.apiInventory" :key="api.className + api.methodName">
+                    <td>{{ api.className }}</td>
+                    <td>{{ api.methodName }}</td>
+                    <td>{{ api.returnType }}</td>
+                    <td>{{ api.parameters }}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4">
+            <h3>External Calls</h3>
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Class Name</th>
+                    <th>Method Name</th>
+                    <th>External Call</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="call in result.externalCalls" :key="call.className + call.methodName + call.externalCall">
+                    <td>{{ call.serviceName }}</td>
+                    <td>{{ call.purpose }}</td>
+                    <td>{{ call.url }}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4 mb-5">
+            <h3>Downloads</h3>
+            <button @click="downloadFile('csv')" class="btn btn-secondary">Download API Inventory (CSV)</button>
+            <button @click="downloadFile('documentation')" class="btn btn-secondary">Download Documentation (MD)
+            </button>
+            <button @click="downloadFile('htmlDiff')" class="btn btn-secondary">Download Design Comparison (HTML)
+            </button>
+        </div>
     </div>
-  </div>
+</div>
 
-  <script>
+<script>
     new Vue({
-      el: '#app',
-      data: {
-        projectName: '',
-        projectFile: null,
-        designFile: null,
-        result: null,
-        results: null,
-        diagrams: {},
-        isFullscreen: {
-          'sequence-diagram': false,
-          'class-diagram': false,
-          'component-diagram': false,
-          'state-diagram': false,
-          'activity-diagram': false
+        el: '#app',
+        data: {
+            projectName: '',
+            projectFile: null,
+            designFile: null,
+            result: null,
+            results: null,
+            diagrams: {},
+            isFullscreen: {
+                'sequence-diagram': false,
+                'class-diagram': false,
+                'component-diagram': false,
+                'state-diagram': false,
+                'activity-diagram': false
+            },
+            databaseChangeLogs: []
         },
-        databaseChangeLogs: []
-      },
-      methods: {
-        analyzeProject() {
-          const formData = new FormData();
-          formData.append('projectFile', this.$refs.projectFile.files[0]);
-          formData.append('designFile', this.$refs.designFile.files[0]);
+        methods: {
+            analyzeProject() {
+                const formData = new FormData();
+                formData.append('projectFile', this.$refs.projectFile.files[0]);
+                formData.append('designFile', this.$refs.designFile.files[0]);
 
-          axios.post('/api/analysis/analyze', formData)
-            .then(response => {
-              this.result = response.data;
-              this.results = null; // Clear multiple project results
-              this.$nextTick(() => {
-                this.renderDiagrams();
-                this.fetchDatabaseChangeLogs();
-              });
-            })
-            .catch(error => {
-              console.error('Error:', error);
-              alert('An error occurred during analysis.');
-            });
-        },
-        analyzeProject() {
-          const formData = new FormData();
-          formData.append('projectFile', this.$refs.projectFile.files[0]);
-          formData.append('designFile', this.$refs.designFile.files[0]);
-          formData.append('projectName', this.projectName);
+                axios.post('/api/analysis/analyze', formData)
+                    .then(response => {
+                        this.result = response.data;
+                        this.results = null; // Clear multiple project results
+                        this.$nextTick(() => {
+                            this.renderDiagrams();
+                            this.fetchDatabaseChangeLogs();
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred during analysis.');
+                    });
+            },
+            analyzeProject() {
+                const formData = new FormData();
+                formData.append('projectFile', this.$refs.projectFile.files[0]);
+                formData.append('designFile', this.$refs.designFile.files[0]);
+                formData.append('projectName', this.projectName);
 
-          axios.post('/api/analysis/analyze', formData)
-            .then(response => {
-              this.result = response.data;
-              this.$nextTick(() => {
-                this.renderDiagrams();
-              });
-            })
-            .catch(error => {
-              console.error('Error:', error);
-              alert('An error occurred during analysis.');
-            });
-        },
-        renderDiagrams() {
-          this.renderDiagram('sequence-diagram', this.result.sequenceDiagramUrl);
-          this.renderDiagram('class-diagram', this.result.classDiagramUrl);
-          this.renderDiagram('component-diagram', this.result.componentDiagramUrl);
-          this.renderDiagram('state-diagram', this.result.stateDiagramUrl);
-          this.renderDiagram('activity-diagram', this.result.activityDiagramUrl);
-        },
-        renderDiagram(elementId, url) {
-          const element = document.getElementById(elementId);
-          const iframe = document.createElement('iframe');
-          iframe.style.width = '100%';
-          iframe.style.height = '100%';
-          iframe.style.border = 'none';
-          iframe.src = url;
-          element.innerHTML = '';
-          element.appendChild(iframe);
+                axios.post('/api/analysis/analyze', formData)
+                    .then(response => {
+                        this.result = response.data;
+                        this.$nextTick(() => {
+                            this.renderDiagrams();
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred during analysis.');
+                    });
+            },
+            renderDiagrams() {
+                this.renderDiagram('sequence-diagram', this.result.sequenceDiagramUrl);
+                this.renderDiagram('class-diagram', this.result.classDiagramUrl);
+                this.renderDiagram('component-diagram', this.result.componentDiagramUrl);
+                this.renderDiagram('state-diagram', this.result.stateDiagramUrl);
+                this.renderDiagram('activity-diagram', this.result.activityDiagramUrl);
+            },
+            renderDiagram(elementId, url) {
+                const element = document.getElementById(elementId);
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.src = url;
+                element.innerHTML = '';
+                element.appendChild(iframe);
 
-          iframe.onload = () => {
-            const svg = iframe.contentDocument.querySelector('svg');
-            if (svg) {
-              svg.style.width = '100%';
-              svg.style.height = '100%';
-              this.diagrams[elementId] = {
-                svg: svg,
-                scale: 1,
-                translateX: 0,
-                translateY: 0
-              };
-              this.setupPanZoom(elementId);
-              this.setupMiniMap(elementId);
-              this.setupKeyboardShortcuts(elementId);
-            }
-          };
-        },
-        setupPanZoom(elementId) {
-          const diagram = this.diagrams[elementId];
-          let isDragging = false;
-          let startX, startY;
+                iframe.onload = () => {
+                    const svg = iframe.contentDocument.querySelector('svg');
+                    if (svg) {
+                        svg.style.width = '100%';
+                        svg.style.height = '100%';
+                        this.diagrams[elementId] = {
+                            svg: svg,
+                            scale: 1,
+                            translateX: 0,
+                            translateY: 0
+                        };
+                        this.setupPanZoom(elementId);
+                        this.setupMiniMap(elementId);
+                        this.setupKeyboardShortcuts(elementId);
+                    }
+                };
+            },
+            setupPanZoom(elementId) {
+                const diagram = this.diagrams[elementId];
+                let isDragging = false;
+                let startX, startY;
 
-          diagram.svg.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.clientX - diagram.translateX;
-            startY = e.clientY - diagram.translateY;
-          });
+                diagram.svg.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    startX = e.clientX - diagram.translateX;
+                    startY = e.clientY - diagram.translateY;
+                });
 
-          diagram.svg.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-              diagram.translateX = e.clientX - startX;
-              diagram.translateY = e.clientY - startY;
-              this.updateTransform(elementId);
-            }
-          });
+                diagram.svg.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        diagram.translateX = e.clientX - startX;
+                        diagram.translateY = e.clientY - startY;
+                        this.updateTransform(elementId);
+                    }
+                });
 
-          diagram.svg.addEventListener('mouseup', () => {
-            isDragging = false;
-          });
+                diagram.svg.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
 
-          diagram.svg.addEventListener('mouseleave', () => {
-            isDragging = false;
-          });
+                diagram.svg.addEventListener('mouseleave', () => {
+                    isDragging = false;
+                });
 
-          diagram.svg.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            diagram.scale *= delta;
-            this.updateTransform(elementId);
-          });
-        },
-        setupMiniMap(elementId) {
-          const diagram = this.diagrams[elementId];
-          const miniMap = document.querySelector(`#${elementId}`).parentNode.querySelector('.mini-map');
-          const miniMapViewport = miniMap.querySelector('.mini-map-viewport');
-          const miniMapSvg = diagram.svg.cloneNode(true);
-          miniMap.appendChild(miniMapSvg);
+                diagram.svg.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    diagram.scale *= delta;
+                    this.updateTransform(elementId);
+                });
+            },
+            setupMiniMap(elementId) {
+                const diagram = this.diagrams[elementId];
+                const miniMap = document.querySelector(`#${elementId}`).parentNode.querySelector('.mini-map');
+                const miniMapViewport = miniMap.querySelector('.mini-map-viewport');
+                const miniMapSvg = diagram.svg.cloneNode(true);
+                miniMap.appendChild(miniMapSvg);
 
-          const updateMiniMap = () => {
-            const containerRect = diagram.svg.getBoundingClientRect();
-            const svgRect = diagram.svg.viewBox.baseVal;
-            const scale = Math.min(miniMap.offsetWidth / svgRect.width, miniMap.offsetHeight / svgRect.height);
+                const updateMiniMap = () => {
+                    const containerRect = diagram.svg.getBoundingClientRect();
+                    const svgRect = diagram.svg.viewBox.baseVal;
+                    const scale = Math.min(miniMap.offsetWidth / svgRect.width, miniMap.offsetHeight / svgRect.height);
 
-            miniMapViewport.style.width = `${containerRect.width * scale / diagram.scale}px`;
-            miniMapViewport.style.height = `${containerRect.height * scale / diagram.scale}px`;
-            miniMapViewport.style.transform = `translate(
+                    miniMapViewport.style.width = `${containerRect.width * scale / diagram.scale}px`;
+                    miniMapViewport.style.height = `${containerRect.height * scale / diagram.scale}px`;
+                    miniMapViewport.style.transform = `translate(
                         ${-diagram.translateX * scale / diagram.scale}px,
                         ${-diagram.translateY * scale / diagram.scale}px
                     )`;
-          };
+                };
 
-          this.$watch(() => [diagram.scale, diagram.translateX, diagram.translateY], updateMiniMap);
-          window.addEventListener('resize', updateMiniMap);
-          updateMiniMap();
-        },
-        setupKeyboardShortcuts(elementId) {
-          const diagram = this.diagrams[elementId];
-          const container = document.querySelector(`#${elementId}`).parentNode;
+                this.$watch(() => [diagram.scale, diagram.translateX, diagram.translateY], updateMiniMap);
+                window.addEventListener('resize', updateMiniMap);
+                updateMiniMap();
+            },
+            setupKeyboardShortcuts(elementId) {
+                const diagram = this.diagrams[elementId];
+                const container = document.querySelector(`#${elementId}`).parentNode;
 
-          container.tabIndex = 0;
-          container.addEventListener('keydown', (e) => {
-            if (e.key === '+' || e.key === '=') {
-              this.zoomIn(elementId);
-            } else if (e.key === '-') {
-              this.zoomOut(elementId);
-            } else if (e.key === '0') {
-              this.resetZoom(elementId);
-            } else if (e.key.startsWith('Arrow')) {
-              e.preventDefault();
-              const step = 50 / diagram.scale;
-              if (e.key === 'ArrowUp') diagram.translateY += step;
-              if (e.key === 'ArrowDown') diagram.translateY -= step;
-              if (e.key === 'ArrowLeft') diagram.translateX += step;
-              if (e.key === 'ArrowRight') diagram.translateX -= step;
-              this.updateTransform(elementId);
+                container.tabIndex = 0;
+                container.addEventListener('keydown', (e) => {
+                    if (e.key === '+' || e.key === '=') {
+                        this.zoomIn(elementId);
+                    } else if (e.key === '-') {
+                        this.zoomOut(elementId);
+                    } else if (e.key === '0') {
+                        this.resetZoom(elementId);
+                    } else if (e.key.startsWith('Arrow')) {
+                        e.preventDefault();
+                        const step = 50 / diagram.scale;
+                        if (e.key === 'ArrowUp') diagram.translateY += step;
+                        if (e.key === 'ArrowDown') diagram.translateY -= step;
+                        if (e.key === 'ArrowLeft') diagram.translateX += step;
+                        if (e.key === 'ArrowRight') diagram.translateX -= step;
+                        this.updateTransform(elementId);
+                    }
+                });
+            },
+            toggleFullscreen(elementId) {
+                this.isFullscreen[elementId] = !this.isFullscreen[elementId];
+                this.$nextTick(() => {
+                    window.dispatchEvent(new Event('resize'));
+                });
+            },
+            saveViewState(elementId) {
+                const diagram = this.diagrams[elementId];
+                localStorage.setItem(`${elementId}-viewState`, JSON.stringify({
+                    scale: diagram.scale,
+                    translateX: diagram.translateX,
+                    translateY: diagram.translateY
+                }));
+                alert('View state saved!');
+            },
+            loadViewState(elementId) {
+                const savedState = localStorage.getItem(`${elementId}-viewState`);
+                if (savedState) {
+                    const {scale, translateX, translateY} = JSON.parse(savedState);
+                    const diagram = this.diagrams[elementId];
+                    diagram.scale = scale;
+                    diagram.translateX = translateX;
+                    diagram.translateY = translateY;
+                    this.updateTransform(elementId);
+                }
+            },
+            updateTransform(elementId) {
+                const diagram = this.diagrams[elementId];
+                diagram.svg.style.transform = `translate(${diagram.translateX}px, ${diagram.translateY}px) scale(${diagram.scale})`;
+            },
+            zoomIn(elementId) {
+                const diagram = this.diagrams[elementId];
+                diagram.scale *= 1.2;
+                this.updateTransform(elementId);
+            },
+            zoomOut(elementId) {
+                const diagram = this.diagrams[elementId];
+                diagram.scale *= 0.8;
+                this.updateTransform(elementId);
+            },
+            resetZoom(elementId) {
+                const diagram = this.diagrams[elementId];
+                diagram.scale = 1;
+                diagram.translateX = 0;
+                diagram.translateY = 0;
+                this.updateTransform(elementId);
+            },
+            downloadFile(fileType) {
+                window.location.href = `/api/analysis/download/${fileType}`;
+            },
+            fetchDatabaseChangeLogs() {
+                axios.get('/api/analysis/database-changelogs')
+                    .then(response => {
+                        this.databaseChangeLogs = response.data;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching database changelogs:', error);
+                    });
             }
-          });
         },
-        toggleFullscreen(elementId) {
-          this.isFullscreen[elementId] = !this.isFullscreen[elementId];
-          this.$nextTick(() => {
-            window.dispatchEvent(new Event('resize'));
-          });
-        },
-        saveViewState(elementId) {
-          const diagram = this.diagrams[elementId];
-          localStorage.setItem(`${elementId}-viewState`, JSON.stringify({
-            scale: diagram.scale,
-            translateX: diagram.translateX,
-            translateY: diagram.translateY
-          }));
-          alert('View state saved!');
-        },
-        loadViewState(elementId) {
-          const savedState = localStorage.getItem(`${elementId}-viewState`);
-          if (savedState) {
-            const { scale, translateX, translateY } = JSON.parse(savedState);
-            const diagram = this.diagrams[elementId];
-            diagram.scale = scale;
-            diagram.translateX = translateX;
-            diagram.translateY = translateY;
-            this.updateTransform(elementId);
-          }
-        },
-        updateTransform(elementId) {
-          const diagram = this.diagrams[elementId];
-          diagram.svg.style.transform = `translate(${diagram.translateX}px, ${diagram.translateY}px) scale(${diagram.scale})`;
-        },
-        zoomIn(elementId) {
-          const diagram = this.diagrams[elementId];
-          diagram.scale *= 1.2;
-          this.updateTransform(elementId);
-        },
-        zoomOut(elementId) {
-          const diagram = this.diagrams[elementId];
-          diagram.scale *= 0.8;
-          this.updateTransform(elementId);
-        },
-        resetZoom(elementId) {
-          const diagram = this.diagrams[elementId];
-          diagram.scale = 1;
-          diagram.translateX = 0;
-          diagram.translateY = 0;
-          this.updateTransform(elementId);
-        },
-        downloadFile(fileType) {
-          window.location.href = `/api/analysis/download/${fileType}`;
-        },
-        fetchDatabaseChangeLogs() {
-          axios.get('/api/analysis/database-changelogs')
-            .then(response => {
-              this.databaseChangeLogs = response.data;
-            })
-            .catch(error => {
-              console.error('Error fetching database changelogs:', error);
+        mounted() {
+            // Load saved view states when the component is mounted
+            ['sequence-diagram', 'class-diagram', 'component-diagram', 'state-diagram', 'activity-diagram'].forEach(id => {
+                this.$nextTick(() => this.loadViewState(id));
             });
         }
-      },
-      mounted() {
-        // Load saved view states when the component is mounted
-        ['sequence-diagram', 'class-diagram', 'component-diagram', 'state-diagram', 'activity-diagram'].forEach(id => {
-          this.$nextTick(() => this.loadViewState(id));
-        });
-      }
     });
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

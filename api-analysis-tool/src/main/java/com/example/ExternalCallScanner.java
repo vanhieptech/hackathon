@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -255,7 +257,7 @@ public class ExternalCallScanner {
     }
 
     String httpMethod = extractHttpMethod(methodInsn);
-    String serviceName = extractServiceName(classNode);
+    String serviceName = extractServiceName(classNode, baseUrl);
     String purpose = extractPurpose(methodNode);
     String description = extractDescription(methodNode);
     String responseType = extractResponseType(methodNode, methodInsn);
@@ -283,7 +285,21 @@ public class ExternalCallScanner {
     return methodInsn.name.toUpperCase();
   }
 
-  private String extractServiceName(ClassNode classNode) {
+  private String extractServiceName(ClassNode classNode, String baseUrl) {
+    if (baseUrl != null && !baseUrl.isEmpty()) {
+      try {
+        URL url = new URL(baseUrl);
+        String host = url.getHost();
+        String[] parts = host.split("\\.");
+        if (parts.length > 0) {
+          return parts[0];
+        }
+      } catch (MalformedURLException e) {
+        logger.warn("Failed to parse base URL: {}", baseUrl, e);
+      }
+    }
+
+    // Fallback to the original method if baseUrl is not available or parsing fails
     return classNode.name.substring(classNode.name.lastIndexOf('/') + 1).replace("Client", "");
   }
 
