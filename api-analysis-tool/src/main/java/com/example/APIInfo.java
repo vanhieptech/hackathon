@@ -17,6 +17,11 @@ public class APIInfo {
   private List<ParameterInfo> parameters;
   private String className;
   private boolean isAsync;
+  private List<ExternalCallInfo> externalCalls;
+  private List<String> internalMethodCalls;
+  private String controllerClassName;
+  private String serviceClassName;
+  private String repositoryClassName;
 
   public APIInfo(String serviceName, String apiName, String methodName, String description, String apiEndpoint,
       String path, String httpMethod, String version, List<String> serviceDependencies,
@@ -176,5 +181,13 @@ public class APIInfo {
     public void setAnnotationType(String annotationType) {
       this.annotationType = annotationType;
     }
+  }
+
+  public List<ExternalCallInfo> getExternalCalls() {
+    return externalCalls;
+  }
+
+  public void setExternalCalls(List<ExternalCallInfo> externalCalls) {
+    this.externalCalls = externalCalls;
   }
 }

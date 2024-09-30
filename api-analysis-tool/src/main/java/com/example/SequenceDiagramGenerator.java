@@ -15,6 +15,8 @@ import java.util.*;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 import java.util.stream.Collectors;
+import java.net.URL;
+import java.net.MalformedURLException;
 
 public class SequenceDiagramGenerator {
   private static final Logger logger = LoggerFactory.getLogger(SequenceDiagramGenerator.class);
@@ -78,7 +80,7 @@ public class SequenceDiagramGenerator {
     mapMethodAnnotations(allClasses);
 
     logger.info("Appending participants to the diagram");
-    appendParticipants(sb, allClasses, externalCalls);
+    appendParticipants(sb, exposedApis, externalCalls);
 
     logger.info("Generating sequences for each API");
     for (APIInfo api : exposedApis) {
@@ -260,91 +262,96 @@ public class SequenceDiagramGenerator {
 
   private void generateSequenceForAPI(StringBuilder sb, APIInfo api, List<ClassNode> allClasses,
       List<ExternalCallInfo> externalCalls) {
-    logger.info("Generating sequence for API: {}", api.getApiName());
-    sb.append("== ").append(api.getApiName()).append(" ==\n");
+    String serviceName = api.getServiceName();
+    String methodName = api.getMethodName();
 
-    String controllerName = getSimpleClassName(api.getClassName());
+    sb.append("Client -> \"").append(serviceName).append("\" : ").append(api.getHttpMethod()).append(" ")
+        .append(api.getPath()).append("\n");
+    sb.append("activate \"").append(serviceName).append("\"\n");
 
-    sb.append("\"Client\" -> \"").append(controllerName).append("\" : ")
-        .append(api.getHttpMethod()).append(" ").append(api.getPath()).append("\n");
-    sb.append("activate \"").append(controllerName).append("\"\n");
-
-    ClassNode controllerClass = findClassByName(allClasses, api.getClassName());
-    if (controllerClass != null) {
-      MethodNode method = findMethodByName(controllerClass, api.getMethodName());
-      if (method != null) {
-        logger.info("Processing method flow for: {}.{}", controllerName, api.getMethodName());
-        processedMethods.clear();
-        processMethodFlow(sb, controllerClass, method, allClasses, 1, externalCalls);
-      } else {
-        logger.warn("Method not found: {}.{}", controllerName, api.getMethodName());
+    ClassNode classNode = findClassByName(allClasses, api.getClassName());
+    if (classNode != null) {
+      MethodNode methodNode = findMethodByName(classNode, methodName);
+      if (methodNode != null) {
+        processHighLevelCalls(sb, classNode, methodNode, allClasses, externalCalls, serviceName, 0, api);
       }
-    } else {
-      logger.warn("Controller class not found: {}", api.getClassName());
     }
 
-    sb.append("\"").append(controllerName).append("\" --> \"Client\" : response\n");
-    sb.append("deactivate \"").append(controllerName).append("\"\n\n");
+    sb.append("Client <-- \"").append(serviceName).append("\" : Response\n");
+    sb.append("deactivate \"").append(serviceName).append("\"\n\n");
   }
 
-  private void processMethodFlow(StringBuilder sb, ClassNode classNode, MethodNode methodNode,
-      List<ClassNode> allClasses, int depth, List<ExternalCallInfo> externalCalls) {
-    logger.info("Processing method flow: {}.{}, depth: {}", classNode.name, methodNode.name, depth);
-    if (depth > 10 || processedMethods.contains(classNode.name + "." + methodNode.name + methodNode.desc)) {
-      logger.info("Skipping method due to depth limit or already processed");
-      return;
-    }
-    processedMethods.add(classNode.name + "." + methodNode.name + methodNode.desc);
-
-    String callerName = getSimpleClassName(classNode.name);
-    handleAspects(sb, classNode, methodNode, callerName);
-    handleQuarkusAnnotations(sb, classNode, methodNode);
-    handleServiceDiscovery(sb, classNode);
-
-    // Process service dependencies
-    Set<String> dependencies = serviceDependencies.get(callerName);
-    if (dependencies != null) {
-      for (String dependency : dependencies) {
-        sb.append("\"").append(callerName).append("\" -> \"").append(dependency).append("\" : uses\n");
-        sb.append("activate \"").append(dependency).append("\"\n");
-
-        ClassNode dependencyClass = findClassByName(allClasses, dependency);
-        if (dependencyClass != null) {
-          for (MethodNode dependencyMethod : dependencyClass.methods) {
-            if (!dependencyMethod.name.equals("<init>") && !dependencyMethod.name.equals("<clinit>")) {
-              processMethodFlow(sb, dependencyClass, dependencyMethod, allClasses, depth + 1, externalCalls);
-              break; // Process only one method for each dependency to avoid clutter
-            }
-          }
-        }
-
-        sb.append("\"").append(dependency).append("\" --> \"").append(callerName).append("\" : return\n");
-        sb.append("deactivate \"").append(dependency).append("\"\n");
-      }
-    }
+  private void processHighLevelCalls(StringBuilder sb, ClassNode classNode, MethodNode methodNode,
+      List<ClassNode> allClasses, List<ExternalCallInfo> externalCalls, String currentService, int depth,
+      APIInfo apiInfo) {
+    if (depth > 10)
+      return; // Increase the depth limit
 
     for (AbstractInsnNode insn : methodNode.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
-        String calleeName = getSimpleClassName(methodInsn.owner);
+        String calledClass = getSimpleClassName(methodInsn.owner);
+        String calledMethod = methodInsn.name;
 
-        if (isServiceMethod(methodInsn, allClasses)) {
-          logger.info("Processing service call: {} -> {}.{}", callerName, calleeName, methodInsn.name);
-          processServiceCall(sb, methodInsn, allClasses, depth, callerName, externalCalls);
-        } else if (isRepositoryMethod(methodInsn)) {
-          logger.info("Processing repository call: {} -> {}.{}", callerName, calleeName, methodInsn.name);
-          processRepositoryCall(sb, methodInsn, callerName);
-        } else if (isExternalCall(methodInsn, externalCalls)) {
-          logger.info("Processing external call: {} -> {}.{}", callerName, calleeName, methodInsn.name);
-          processExternalCall(sb, methodInsn, externalCalls, callerName);
-        } else if (methodInsn.owner.startsWith("java/lang/")) {
-          // Ignore standard library methods
-          continue;
-        } else {
-          logger.warn("Unhandled method call: {} -> {}.{}", callerName, calleeName, methodInsn.name);
+        ExternalCallInfo externalCall = findExternalCall(methodInsn, externalCalls);
+        if (externalCall != null) {
+          String targetService = externalCall.getServiceName();
+          sb.append("\"").append(currentService).append("\" -> \"").append(targetService).append("\"")
+              .append(" : ").append(externalCall.getHttpMethod()).append(" ").append(externalCall.getUrl())
+              .append("\n");
+          sb.append("activate \"").append(targetService).append("\"\n");
+          sb.append("\"").append(currentService).append("\" <-- \"").append(targetService).append("\" : Response\n");
+          sb.append("deactivate \"").append(targetService).append("\"\n");
+
+          // Add the external call to the APIInfo
+          if (apiInfo != null && apiInfo.getExternalCalls() == null) {
+            apiInfo.setExternalCalls(new ArrayList<>());
+          }
+          if (apiInfo != null) {
+            apiInfo.getExternalCalls().add(externalCall);
+          }
+        } else if (isServiceMethod(methodInsn, allClasses)) {
+          ClassNode targetClassNode = findClassByName(allClasses, methodInsn.owner);
+          if (targetClassNode != null) {
+            MethodNode targetMethodNode = findMethodByName(targetClassNode, calledMethod);
+            if (targetMethodNode != null) {
+              processHighLevelCalls(sb, targetClassNode, targetMethodNode, allClasses, externalCalls, currentService,
+                  depth + 1, apiInfo);
+            }
+          }
+        } else if (isWebClientOrRestTemplateCall(methodInsn)) {
+          ExternalCallInfo newExternalCall = extractExternalCallInfo(methodInsn, classNode, methodNode);
+          if (newExternalCall != null) {
+            externalCalls.add(newExternalCall);
+            if (apiInfo != null && apiInfo.getExternalCalls() == null) {
+              apiInfo.setExternalCalls(new ArrayList<>());
+            }
+            if (apiInfo != null) {
+              apiInfo.getExternalCalls().add(newExternalCall);
+            }
+          }
         }
       }
     }
+  }
+
+  private String getServiceNameFromClass(String className) {
+    // This method should return the service name based on the class name
+    // You might need to implement a mapping or naming convention
+    return className.replaceAll("(Controller|Service|Repository)$", "");
+  }
+
+  private ExternalCallInfo findExternalCall(MethodInsnNode methodInsn, List<ExternalCallInfo> externalCalls) {
+    return externalCalls.stream()
+        .filter(
+            ec -> ec.getCallerClassName().equals(methodInsn.owner) && ec.getCallerMethodName().equals(methodInsn.name))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private boolean isServiceMethod(MethodInsnNode methodInsn, List<ClassNode> allClasses) {
+    ClassNode calledClass = findClassByName(allClasses, methodInsn.owner);
+    return calledClass != null && (isService(calledClass) || isRepository(calledClass));
   }
 
   private void handleAspects(StringBuilder sb, ClassNode classNode, MethodNode methodNode, String callerName) {
@@ -381,280 +388,6 @@ public class SequenceDiagramGenerator {
     return apiInventoryExtractor.extractParameters(methodNode);
   }
 
-  private String getMethodSignature(String methodName, String className, List<ClassNode> allClasses) {
-    ClassNode classNode = findClassByName(allClasses, className);
-    if (classNode != null) {
-      MethodNode methodNode = findMethodByName(classNode, methodName);
-      if (methodNode != null) {
-        List<APIInfo.ParameterInfo> params = extractParameters(methodNode);
-        String paramsString = params.stream()
-            .map(p -> getSimpleClassName(p.getType()) + " " + p.getName())
-            .collect(Collectors.joining(", "));
-        return String.format("%s(%s)", methodName, paramsString);
-      }
-    }
-    return methodName + "()";
-  }
-
-  private String getReturnType(String methodName, String className, List<ClassNode> allClasses) {
-    ClassNode classNode = findClassByName(allClasses, className);
-    if (classNode != null) {
-      MethodNode methodNode = findMethodByName(classNode, methodName);
-      if (methodNode != null) {
-        String returnType = extractReturnType(methodNode);
-        return String.format("%s", getSimpleClassName(returnType));
-      }
-    }
-    return "void";
-  }
-
-  private void processServiceCall(StringBuilder sb, MethodInsnNode methodInsn, List<ClassNode> allClasses, int depth,
-      String callerName, List<ExternalCallInfo> externalCalls) {
-    String interfaceName = implToInterfaceMap.getOrDefault(methodInsn.owner, methodInsn.owner);
-    String calleeName = getSimpleClassName(interfaceName);
-    String methodParams = getMethodSignature(methodInsn.name, methodInsn.owner, allClasses);
-    sb.append("\"").append(callerName).append("\" -> \"").append(calleeName).append("\" : ")
-        .append(methodParams).append("\n");
-    sb.append("activate \"").append(calleeName).append("\"\n");
-
-    ClassNode calleeClass = findImplementationClass(allClasses, methodInsn.owner);
-    if (calleeClass != null) {
-      MethodNode calleeMethod = findMethodByName(calleeClass, methodInsn.name);
-      if (calleeMethod != null) {
-        processMethodFlow(sb, calleeClass, calleeMethod, allClasses, depth + 1, externalCalls);
-      }
-    }
-    String returnType = getReturnType(methodInsn.name, methodInsn.owner, allClasses);
-    sb.append("\"").append(calleeName).append("\" --> \"").append(callerName).append("\" : ").append(returnType)
-        .append("\n");
-    sb.append("deactivate \"").append(calleeName).append("\"\n");
-  }
-
-  private void processRepositoryCall(StringBuilder sb, MethodInsnNode methodInsn, String callerName) {
-    String calleeName = getSimpleClassName(methodInsn.owner);
-    sb.append("\"").append(callerName).append("\" -> \"").append(calleeName).append("\" : ")
-        .append(methodInsn.name).append("\n");
-    sb.append("activate \"").append(calleeName).append("\"\n");
-    sb.append("\"").append(calleeName).append("\" -> \"Database\" : Execute Query\n");
-    sb.append("\"Database\" --> \"").append(calleeName).append("\" : Query Result\n");
-    sb.append("\"").append(calleeName).append("\" --> \"").append(callerName).append("\" : return\n");
-    sb.append("deactivate \"").append(calleeName).append("\"\n");
-  }
-
-  private void processExternalCall(StringBuilder sb, MethodInsnNode methodInsn, List<ExternalCallInfo> externalCalls,
-      String callerName) {
-    ExternalCallInfo externalCall = findMatchingExternalCall(externalCalls, callerName, methodInsn.name);
-    if (externalCall != null) {
-      String externalServiceName = getSimpleClassName(externalCall.getCallerClassName());
-      sb.append("\"").append(callerName).append("\" -> \"").append(externalServiceName).append("\" : ")
-          .append(externalCall.getHttpMethod()).append(" ").append(externalCall.getUrl()).append("\n");
-      sb.append("\"").append(externalServiceName).append("\" --> \"").append(callerName).append("\" : response\n");
-    }
-  }
-
-  private boolean isServiceMethod(MethodInsnNode methodInsn, List<ClassNode> allClasses) {
-    String ownerName = methodInsn.owner.replace('/', '.');
-
-    // Check if the owner class name ends with "Service" or "ServiceImpl"
-    if (ownerName.endsWith("Service") || ownerName.endsWith("ServiceImpl")) {
-      return true;
-    }
-
-    // Find the class node for the owner
-    ClassNode ownerClass = findClassByName(allClasses, ownerName);
-    if (ownerClass != null) {
-      // Check for @Service or @Component annotations on the class
-      return hasAnnotation(ownerClass, "Service") || hasAnnotation(ownerClass, "Component");
-    }
-
-    return false;
-  }
-
-  private boolean isRepositoryMethod(MethodInsnNode methodInsn) {
-    return methodInsn.owner.endsWith("Repository") || methodInsn.name.startsWith("find")
-        || methodInsn.name.startsWith("save") || methodInsn.name.startsWith("delete");
-  }
-
-  private boolean isExternalCall(MethodInsnNode methodInsn, List<ExternalCallInfo> externalCalls) {
-    return externalCalls.stream().anyMatch(call -> call.getCallerClassName().equals(methodInsn.owner));
-  }
-
-  private ExternalCallInfo findMatchingExternalCall(List<ExternalCallInfo> externalCalls, String callerMethod,
-      String calleeMethod) {
-    return externalCalls.stream()
-        .filter(call -> call.getCallerMethod().equals(callerMethod) &&
-            call.getHttpMethod().equalsIgnoreCase(getHttpMethodFromCallee(calleeMethod)))
-        .findFirst()
-        .orElse(null);
-  }
-
-  private String getHttpMethodFromCallee(String calleeMethod) {
-    if (calleeMethod.contains("get"))
-      return "GET";
-    if (calleeMethod.contains("post"))
-      return "POST";
-    if (calleeMethod.contains("put"))
-      return "PUT";
-    if (calleeMethod.contains("delete"))
-      return "DELETE";
-    return "UNKNOWN";
-  }
-
-  private ClassNode findImplementationClass(List<ClassNode> allClasses, String interfaceName) {
-    if (implementationCache.containsKey(interfaceName)) {
-      return implementationCache.get(interfaceName);
-    }
-
-    ClassNode result = findImplementationClassInternal(allClasses, interfaceName);
-    implementationCache.put(interfaceName, result);
-    return result;
-  }
-
-  private ClassNode findImplementationClassInternal(List<ClassNode> allClasses, String interfaceName) {
-    // Step 1: Check if it's a concrete class
-    ClassNode concreteClass = findClassByName(allClasses, interfaceName);
-    if (concreteClass != null && !isInterface(concreteClass)) {
-      logger.info("Found concrete class: {}", concreteClass.name);
-      return concreteClass;
-    }
-
-    // Step 2: Look for direct implementations
-    List<ClassNode> directImplementations = findDirectImplementations(allClasses, interfaceName);
-    if (!directImplementations.isEmpty()) {
-      return handleMultipleImplementations(directImplementations, interfaceName, "direct");
-    }
-
-    // Step 3: Look for indirect implementations (through interface inheritance)
-    ClassNode indirectImplementation = findIndirectImplementation(allClasses, interfaceName);
-    if (indirectImplementation != null) {
-      return indirectImplementation;
-    }
-
-    // Step 4: Handle Spring Data repositories and other dynamic proxies
-    if (isSpringDataRepository(interfaceName)) {
-      logger.info("Assuming Spring Data repository or DAO for: {}", interfaceName);
-      return concreteClass; // Return the interface itself
-    }
-
-    // Step 5: Look for abstract class implementations
-    List<ClassNode> abstractImplementations = findAbstractImplementations(allClasses, interfaceName);
-    if (!abstractImplementations.isEmpty()) {
-      return handleMultipleImplementations(abstractImplementations, interfaceName, "abstract");
-    }
-
-    // Step 6: Apply custom rules
-    ClassNode customRuleMatch = applyCustomRules(allClasses, interfaceName);
-    if (customRuleMatch != null) {
-      return customRuleMatch;
-    }
-
-    // Step 7: Look for classes with similar names (if naming conventions are
-    // enabled)
-    if (useNamingConventions) {
-      ClassNode namingConventionMatch = findByNamingConvention(allClasses, interfaceName);
-      if (namingConventionMatch != null) {
-        return namingConventionMatch;
-      }
-    }
-
-    logger.warn("No implementation found for {}. Using the interface/class itself.", interfaceName);
-    return concreteClass; // Return the interface/class itself if no implementation is found
-  }
-
-  private List<ClassNode> findDirectImplementations(List<ClassNode> allClasses, String interfaceName) {
-    return allClasses.stream()
-        .filter(classNode -> classNode.interfaces.contains(interfaceName))
-        .collect(Collectors.toList());
-  }
-
-  private ClassNode handleMultipleImplementations(List<ClassNode> implementations, String interfaceName,
-      String implementationType) {
-    if (implementations.size() > 1) {
-      logger.warn("Multiple {} implementations found for {}: {}", implementationType, interfaceName,
-          implementations.stream().map(cn -> cn.name).collect(Collectors.joining(", ")));
-    }
-    logger.info("Found {} implementation for {}: {}", implementationType, interfaceName, implementations.get(0).name);
-    return implementations.get(0);
-  }
-
-  private ClassNode findIndirectImplementation(List<ClassNode> allClasses, String interfaceName) {
-    for (ClassNode classNode : allClasses) {
-      if (isIndirectImplementation(classNode, interfaceName, allClasses, new HashSet<>())) {
-        logger.info("Found indirect implementation for {}: {}", interfaceName, classNode.name);
-        return classNode;
-      }
-    }
-    return null;
-  }
-
-  private boolean isIndirectImplementation(ClassNode classNode, String targetInterface, List<ClassNode> allClasses,
-      Set<String> visited) {
-    if (visited.contains(classNode.name)) {
-      return false;
-    }
-    visited.add(classNode.name);
-
-    for (String directInterface : classNode.interfaces) {
-      if (directInterface.equals(targetInterface)) {
-        return true;
-      }
-      ClassNode interfaceNode = findClassByName(allClasses, directInterface);
-      if (interfaceNode != null && isIndirectImplementation(interfaceNode, targetInterface, allClasses, visited)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private boolean isSpringDataRepository(String interfaceName) {
-    return interfaceName.contains("Repository") || interfaceName.endsWith("Dao");
-  }
-
-  private List<ClassNode> findAbstractImplementations(List<ClassNode> allClasses, String interfaceName) {
-    return allClasses.stream()
-        .filter(classNode -> isSubclassOf(classNode, interfaceName, allClasses))
-        .collect(Collectors.toList());
-  }
-
-  private boolean isSubclassOf(ClassNode classNode, String superClassName, List<ClassNode> allClasses) {
-    if (classNode.superName.equals(superClassName)) {
-      return true;
-    }
-    ClassNode superClass = findClassByName(allClasses, classNode.superName);
-    return superClass != null && isSubclassOf(superClass, superClassName, allClasses);
-  }
-
-  private ClassNode applyCustomRules(List<ClassNode> allClasses, String interfaceName) {
-    for (ImplementationMatcher matcher : customRules) {
-      Optional<ClassNode> match = allClasses.stream()
-          .filter(classNode -> matcher.matches(classNode, interfaceName))
-          .findFirst();
-      if (match.isPresent()) {
-        logger.info("Found implementation for {} using custom rule: {}", interfaceName, match.get().name);
-        return match.get();
-      }
-    }
-    return null;
-  }
-
-  private ClassNode findByNamingConvention(List<ClassNode> allClasses, String interfaceName) {
-    String simpleInterfaceName = getSimpleClassName(interfaceName);
-    List<ClassNode> potentialMatches = allClasses.stream()
-        .filter(classNode -> getSimpleClassName(classNode.name).contains(simpleInterfaceName))
-        .collect(Collectors.toList());
-
-    if (!potentialMatches.isEmpty()) {
-      logger.warn("No exact implementation found for {}. Using potential match based on naming convention: {}",
-          interfaceName, potentialMatches.get(0).name);
-      return potentialMatches.get(0);
-    }
-    return null;
-  }
-
-  private boolean isInterface(ClassNode classNode) {
-    return (classNode.access & Opcodes.ACC_INTERFACE) != 0;
-  }
-
   private String getSimpleClassName(String fullClassName) {
     logger.trace("Getting simple class name for: {}", fullClassName);
     if (fullClassName == null || fullClassName.isEmpty()) {
@@ -684,55 +417,36 @@ public class SequenceDiagramGenerator {
     return result;
   }
 
-  private void appendParticipants(StringBuilder sb, List<ClassNode> allClasses, List<ExternalCallInfo> externalCalls) {
+  private void appendParticipants(StringBuilder sb, List<APIInfo> apis, List<ExternalCallInfo> externalCalls) {
     Set<String> addedParticipants = new HashSet<>();
     List<String> orderedParticipants = new ArrayList<>();
 
     // Add Client
     orderedParticipants.add("Client");
+    addedParticipants.add("Client");
 
-    // Add Controllers
-    for (ClassNode classNode : allClasses) {
-      if (isController(classNode)) {
-        String participantName = getParticipantName(classNode);
-        if (!addedParticipants.contains(participantName)) {
-          orderedParticipants.add(participantName);
-          addedParticipants.add(participantName);
-        }
+    // Add the main application service
+    String mainServiceName = getMainServiceName();
+    if (mainServiceName != null) {
+      orderedParticipants.add(mainServiceName);
+      addedParticipants.add(mainServiceName);
+    }
+
+    // Add services from APIInfo
+    for (APIInfo api : apis) {
+      String serviceName = api.getServiceName();
+      if (serviceName != null && !addedParticipants.contains(serviceName)) {
+        orderedParticipants.add(serviceName);
+        addedParticipants.add(serviceName);
       }
     }
 
-    // Add Services
-    for (ClassNode classNode : allClasses) {
-      if (isService(classNode)) {
-        String participantName = getSimpleClassName(classNode.name);
-        if (!addedParticipants.contains(participantName)) {
-          orderedParticipants.add(participantName);
-          addedParticipants.add(participantName);
-        }
-      }
-    }
-
-    // Add Repositories
-    for (ClassNode classNode : allClasses) {
-      if (isRepository(classNode)) {
-        String participantName = getSimpleClassName(classNode.name);
-        if (!addedParticipants.contains(participantName)) {
-          orderedParticipants.add(participantName);
-          addedParticipants.add(participantName);
-        }
-      }
-    }
-
-    // Add Database
-    orderedParticipants.add("Database");
-
-    // Add external services
+    // Add services from ExternalCallInfo
     for (ExternalCallInfo externalCall : externalCalls) {
-      String participantName = externalCall.getServiceName();
-      if (!addedParticipants.contains(participantName)) {
-        orderedParticipants.add(participantName);
-        addedParticipants.add(participantName);
+      String serviceName = externalCall.getServiceName();
+      if (serviceName != null && !addedParticipants.contains(serviceName)) {
+        orderedParticipants.add(serviceName);
+        addedParticipants.add(serviceName);
       }
     }
 
@@ -741,6 +455,23 @@ public class SequenceDiagramGenerator {
       sb.append("participant \"").append(participant).append("\"\n");
     }
     sb.append("\n");
+  }
+
+  private String getMainServiceName() {
+    // Try to get the service name from spring.application.name
+    String serviceName = configProperties.get("spring.application.name");
+
+    // If not found, try to extract from other common properties
+    if (serviceName == null || serviceName.isEmpty()) {
+      serviceName = configProperties.get("application.name");
+    }
+
+    // If still not found, use a default name
+    if (serviceName == null || serviceName.isEmpty()) {
+      serviceName = "MainService";
+    }
+
+    return serviceName;
   }
 
   private String getParticipantName(ClassNode classNode) {
@@ -837,5 +568,133 @@ public class SequenceDiagramGenerator {
         .filter(mn -> mn.name.equals(methodName))
         .findFirst()
         .orElse(null);
+  }
+
+  private boolean isWebClientOrRestTemplateCall(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("WebClient") || methodInsn.owner.contains("RestTemplate");
+  }
+
+  private ExternalCallInfo extractExternalCallInfo(MethodInsnNode methodInsn, ClassNode classNode, MethodNode methodNode) {
+    String url = extractUrlFromMethodInsn(methodInsn, classNode, methodNode);
+    String httpMethod = extractHttpMethodFromMethodInsn(methodInsn);
+    String serviceName = extractServiceNameFromUrl(url);
+    String responseType = extractResponseType(methodNode, methodInsn);
+    List<String> parameters = extractParameters(methodNode, methodInsn);
+    
+    if (url != null && httpMethod != null) {
+        return new ExternalCallInfo(
+            serviceName,
+            url,
+            httpMethod,
+            methodInsn.name,
+            "External call from " + classNode.name + "." + methodNode.name,
+            responseType,
+            parameters.toArray(new String[0])
+        );
+    }
+    return null;
+  }
+
+  private String extractUrlFromMethodInsn(MethodInsnNode methodInsn, ClassNode classNode, MethodNode methodNode) {
+    String baseUrl = classToHostMap.get(classNode.name);
+    String endpoint = null;
+    
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+        if (insn instanceof LdcInsnNode && ((LdcInsnNode) insn).cst instanceof String) {
+            String constant = (String) ((LdcInsnNode) insn).cst;
+            if (constant.startsWith("/") || constant.startsWith("http")) {
+                endpoint = constant;
+                break;
+            }
+        }
+    }
+    
+    if (baseUrl != null && endpoint != null) {
+        return combineUrls(baseUrl, endpoint);
+    } else if (endpoint != null) {
+        return endpoint;
+    }
+    
+    return null;
+  }
+
+  private String extractHttpMethodFromMethodInsn(MethodInsnNode methodInsn) {
+    String methodName = methodInsn.name.toLowerCase();
+    if (methodName.contains("get")) return "GET";
+    if (methodName.contains("post")) return "POST";
+    if (methodName.contains("put")) return "PUT";
+    if (methodName.contains("delete")) return "DELETE";
+    if (methodName.contains("patch")) return "PATCH";
+    return "UNKNOWN";
+  }
+
+  private String extractServiceNameFromUrl(String url) {
+    if (url == null) return null;
+    try {
+        URL parsedUrl = new URL(url);
+        String host = parsedUrl.getHost();
+        String[] parts = host.split("\\.");
+        if (parts.length > 0) {
+            return parts[0];
+        }
+    } catch (MalformedURLException e) {
+        logger.warn("Failed to parse URL: {}", url, e);
+    }
+    return "UnknownService";
+  }
+
+  private String extractResponseType(MethodNode methodNode, MethodInsnNode methodInsn) {
+    for (AbstractInsnNode insn = methodInsn.getNext(); insn != null; insn = insn.getNext()) {
+        if (insn instanceof MethodInsnNode) {
+            MethodInsnNode mi = (MethodInsnNode) insn;
+            if (mi.name.equals("bodyToMono") || mi.name.equals("bodyToFlux")) {
+                AbstractInsnNode prevInsn = mi.getPrevious();
+                if (prevInsn instanceof LdcInsnNode && ((LdcInsnNode) prevInsn).cst instanceof Type) {
+                    return ((Type) ((LdcInsnNode) prevInsn).cst).getClassName();
+                }
+            }
+        }
+    }
+    return Type.getReturnType(methodNode.desc).getClassName();
+  }
+
+  private List<String> extractParameters(MethodNode methodNode, MethodInsnNode methodInsn) {
+    List<String> parameters = new ArrayList<>();
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+        if (insn instanceof VarInsnNode) {
+            VarInsnNode varInsn = (VarInsnNode) insn;
+            LocalVariableNode localVar = findLocalVariable(methodNode, varInsn.var, insn);
+            if (localVar != null) {
+                parameters.add(0, localVar.name + ": " + Type.getType(localVar.desc).getClassName());
+            }
+        }
+        if (insn instanceof MethodInsnNode && ((MethodInsnNode) insn).name.equals("build")) {
+            break;
+        }
+    }
+    return parameters;
+  }
+
+  private LocalVariableNode findLocalVariable(MethodNode methodNode, int index, AbstractInsnNode currentInsn) {
+    if (methodNode.localVariables == null) return null;
+    for (LocalVariableNode localVar : methodNode.localVariables) {
+        if (localVar.index == index) {
+            int startIndex = methodNode.instructions.indexOf(localVar.start);
+            int endIndex = methodNode.instructions.indexOf(localVar.end);
+            int currentIndex = methodNode.instructions.indexOf(currentInsn);
+            if (currentIndex >= startIndex && currentIndex < endIndex) {
+                return localVar;
+            }
+        }
+    }
+    return null;
+  }
+
+  private String combineUrls(String baseUrl, String endpoint) {
+    if (baseUrl == null)
+      return endpoint;
+    baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+    endpoint = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
+    return baseUrl + endpoint;
   }
 }
