@@ -4,7 +4,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
@@ -12,46 +11,34 @@ import java.util.List;
 public class CSVGenerator {
   private static final Logger logger = LoggerFactory.getLogger(CSVGenerator.class);
 
-  public void generateCSV(List<APIInfo> apiInventory, List<ExternalCallInfo> externalCalls, String fileName,
-      String format) {
+  public String generateCSV(APIInfo apiInventory, List<ExternalCallInfo> externalCalls, String projectName) {
+    String fileName = projectName + "_api_inventory.csv";
     try (FileWriter writer = new FileWriter(fileName)) {
-      switch (format.toLowerCase()) {
-        case "default":
-          generateDefaultFormat(writer, apiInventory, externalCalls);
-          break;
-        case "dynatrace":
-          generateDynatraceFormat(writer, apiInventory, externalCalls);
-          break;
-        case "appdynamics":
-          generateAppDynamicsFormat(writer, apiInventory, externalCalls);
-          break;
-        default:
-          logger.warn("Unknown format '{}'. Using default format.", format);
-          generateDefaultFormat(writer, apiInventory, externalCalls);
-      }
-
+      generateDefaultFormat(writer, apiInventory, externalCalls);
       logger.info("CSV file generated successfully: {}", fileName);
+      return fileName;
     } catch (IOException e) {
       logger.error("Error generating CSV file: {}", e.getMessage());
+      return null;
     }
   }
 
-  private void generateDefaultFormat(FileWriter writer, List<APIInfo> apiInventory,
+  private void generateDefaultFormat(FileWriter writer, APIInfo apiInventory,
       List<ExternalCallInfo> externalCalls) throws IOException {
     CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
         .withHeader("Type", "Service Name", "API Name", "HTTP Method", "API Endpoint", "Description", "Version",
             "Service Dependency", "Return Type", "Parameters"));
 
-    for (APIInfo api : apiInventory) {
+    for (APIInfo.ExposedAPI api : apiInventory.getExposedApis()) {
       csvPrinter.printRecord(
           "Internal",
-          api.getServiceName(),
-          api.getApiName(),
+          apiInventory.getServiceName(),
+          api.getServiceMethod(),
           api.getHttpMethod(),
-          api.getApiEndpoint(),
-          api.getDescription(),
-          api.getVersion(),
-          api.getServiceDependencies() != null ? String.join(";", api.getServiceDependencies()) : "",
+          api.getPath(),
+          "N/A",
+          "N/A",
+          api.getServiceClassName(),
           api.getReturnType(),
           formatParameters(api.getParameters()));
     }
@@ -78,18 +65,7 @@ public class CSVGenerator {
       return "";
     }
     return parameters.stream()
-        .map(param -> param.type + " " + param.name + " ("
-            + (param.annotationType != null ? param.annotationType : "N/A") + ")")
+        .map((APIInfo.ParameterInfo param) -> param.getType() + " " + param.getName())
         .collect(java.util.stream.Collectors.joining(", "));
-  }
-
-  private void generateDynatraceFormat(FileWriter writer, List<APIInfo> apiInventory,
-      List<ExternalCallInfo> externalCalls) throws IOException {
-    // Implement Dynatrace-specific CSV format
-  }
-
-  private void generateAppDynamicsFormat(FileWriter writer, List<APIInfo> apiInventory,
-      List<ExternalCallInfo> externalCalls) throws IOException {
-    // Implement AppDynamics-specific CSV format
   }
 }

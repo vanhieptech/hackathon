@@ -1,0 +1,14 @@
+Type,Service Name,API Name,HTTP Method,API Endpoint,Description,Version,Service Dependency,Return Type,Parameters
+Internal,vh-book-store,<init>,UNKNOWN,value/api/books,N/A,N/A,,void,com.example.service.BookService bookService
+Internal,vh-book-store,getAllBooks,GET,value/api/books,N/A,N/A,,java.util.List,
+Internal,vh-book-store,getBookById,GET,value/api/books/{id},N/A,N/A,,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long java.lang.Long
+Internal,vh-book-store,createBook,POST,value/api/books,N/A,N/A,,com.example.model.Book,com.example.model.Book com.example.model.Book
+Internal,vh-book-store,updateBook,PUT,value/api/books/{id},N/A,N/A,,org.springframework.http.ResponseEntity<java.lang.Long>,"java.lang.Long java.lang.Long, com.example.model.Book com.example.model.Book"
+Internal,vh-book-store,deleteBook,DELETE,value/api/books/{id},N/A,N/A,,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long java.lang.Long
+Internal,vh-book-store,getBookWithAuthor,GET,value/api/books/{id}/with-author,N/A,N/A,,org.springframework.http.ResponseEntity<java.lang.Long>,java.lang.Long java.lang.Long
+Internal,vh-book-store,<init>,UNKNOWN,,N/A,N/A,,void,com.example.service.AuthorServiceClient authorServiceClient
+Internal,vh-book-store,getAuthorById,UNKNOWN,,N/A,N/A,,reactor.core.publisher.Mono<java.lang.Long>,"java.lang.Long id, org.springframework.web.server.ServerWebExchange exchange"
+Internal,vh-book-store,lambda$getAuthorById$1,UNKNOWN,,N/A,N/A,,reactor.core.publisher.Mono,java.lang.Throwable param1
+Internal,vh-book-store,lambda$getAuthorById$0,UNKNOWN,,N/A,N/A,,org.springframework.http.ResponseEntity,com.example.dto.AuthorDTO author
+Internal,vh-book-store,getAuthorById,GET,/authors/{id},N/A,N/A,,reactor.core.publisher.Mono<java.lang.Long>,"java.lang.Long id, org.springframework.web.server.ServerWebExchange exchange"
+External,vh-author,getAuthor,GET,http://vh-author:8081/api/authors/{id},Method: getAuthor,N/A,N/A,reactor.core.publisher.Mono,id

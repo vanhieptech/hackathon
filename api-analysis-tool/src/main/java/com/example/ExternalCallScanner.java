@@ -6,6 +6,7 @@ import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -14,6 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@Service
 public class ExternalCallScanner {
   private static final Logger logger = LoggerFactory.getLogger(ExternalCallScanner.class);
   private final Map<String, String> configProperties;

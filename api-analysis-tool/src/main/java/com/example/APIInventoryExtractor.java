@@ -7,6 +7,9 @@ import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.example.APIInfo.ExternalAPI;
+import org.springframework.stereotype.Service;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -21,71 +24,247 @@ public class APIInventoryExtractor {
   private final String basePath;
   private final Set<String> enabledEndpoints;
   private final Set<String> ignoredPaths;
-  private final String fileName;
+  private final String projectName;
+  private final List<ClassNode> allClasses;
+  private final Map<String, Set<String>> serviceMethodCalls;
 
-  public APIInventoryExtractor(Map<String, String> configProperties, String fileName) {
+  public APIInventoryExtractor(Map<String, String> configProperties, String projectName, List<ClassNode> allClasses) {
     this.configProperties = configProperties;
-    String PORT = configProperties.getOrDefault("server.port", "8080");
-    this.basePath = "http://" + configProperties.getOrDefault("spring.application.name", "") + ":" + PORT;
+    this.projectName = projectName;
+    this.allClasses = allClasses;
+    String port = configProperties.getOrDefault("server.port", "8080");
+    this.basePath = "http://" + configProperties.getOrDefault("spring.application.name", "localhost") + ":" + port;
     this.enabledEndpoints = parseCommaSeparatedConfig("api.enabled-endpoints");
     this.ignoredPaths = parseCommaSeparatedConfig("api.ignored-paths");
-    this.fileName = fileName;
+    this.serviceMethodCalls = new HashMap<>();
+    buildServiceMethodCallMap();
     logger.info("APIInventoryExtractor initialized with base path: {}", basePath);
   }
 
-  public List<APIInfo> extractExposedAPIs(List<ClassNode> allClasses) {
-    logger.info("Extracting exposed APIs");
-    List<APIInfo> apis = allClasses.stream()
-        .filter(this::isApiClass)
-        .flatMap(classNode -> extractAPIsFromClass(classNode).stream())
-        .filter(this::isApiEnabled)
-        .collect(Collectors.toList());
-    logger.info("Extracted {} APIs", apis.size());
-    return apis;
+  private void buildServiceMethodCallMap() {
+    for (ClassNode classNode : allClasses) {
+      if (isController(classNode)) {
+        for (MethodNode methodNode : classNode.methods) {
+          Set<String> calledMethods = findCalledServiceMethods(methodNode);
+          serviceMethodCalls.put(classNode.name + "." + methodNode.name, calledMethods);
+        }
+      }
+    }
   }
 
-  private boolean isApiClass(ClassNode classNode) {
-    // Check for existing conditions (Controller or Service annotations)
-    if (isController(classNode) || isService(classNode)) {
-      return true;
+  private Set<String> findCalledServiceMethods(MethodNode methodNode) {
+    Set<String> calledMethods = new HashSet<>();
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        if (isServiceMethod(methodInsn)) {
+          calledMethods.add(methodInsn.owner + "." + methodInsn.name);
+        }
+      }
+    }
+    return calledMethods;
+  }
+
+  private boolean isServiceMethod(MethodInsnNode methodInsn) {
+    ClassNode targetClass = allClasses.stream()
+        .filter(cn -> cn.name.equals(methodInsn.owner))
+        .findFirst()
+        .orElse(null);
+    return targetClass != null && isService(targetClass);
+  }
+
+  public APIInfo extractExposedAPIs() {
+    logger.info("Extracting exposed APIs for project: {}", projectName);
+    APIInfo apiInfo = new APIInfo(projectName);
+    String apiVersion = extractApiVersion(allClasses);
+    List<APIInfo.ExposedAPI> exposedApis = new ArrayList<>();
+
+    for (ClassNode classNode : allClasses) {
+      if (isApiClass(classNode)) {
+        exposedApis.addAll(extractAPIsFromClass(classNode, allClasses, apiVersion));
+      }
     }
 
-    // Check for OpenAPI generated classes
-    if (classNode.visibleAnnotations != null) {
-      for (AnnotationNode annotation : classNode.visibleAnnotations) {
-        if (annotation.desc.contains("Generated") || annotation.desc.contains("OpenAPIDefinition")) {
-          if (annotation.values != null) {
-            for (int i = 0; i < annotation.values.size(); i += 2) {
-              if (annotation.values.get(i).equals("value") &&
-                  (annotation.values.get(i + 1).toString().contains("openapi-generator") ||
-                      annotation.values.get(i + 1).toString().contains("swagger"))) {
-                return true;
+    apiInfo.setExposedApis(exposedApis);
+
+    mapApisToServices(apiInfo, allClasses);
+    identifyAsyncApis(apiInfo);
+    extractDependencies(apiInfo, allClasses);
+    extractExternalAPICalls(apiInfo, allClasses, configProperties);
+    handleApiVersioning(apiInfo);
+
+    logger.info("Extracted {} APIs", exposedApis.size());
+    return apiInfo;
+  }
+
+  private void mapApisToServices(APIInfo apiInfo, List<ClassNode> allClasses) {
+    Map<String, String> controllerToServiceMap = new HashMap<>();
+    for (APIInfo.ExposedAPI api : apiInfo.getExposedApis()) {
+      String serviceClassName = extractServiceClassName(api.getControllerClassName(), allClasses);
+      controllerToServiceMap.put(api.getControllerClassName(), serviceClassName);
+      api.setServiceClassName(serviceClassName);
+    }
+    apiInfo.setControllerToServiceMap(controllerToServiceMap);
+  }
+
+  private String extractServiceClassName(String controllerClassName, List<ClassNode> allClasses) {
+    ClassNode classNode = allClasses.stream()
+        .filter(cn -> cn.name.equals(controllerClassName))
+        .findFirst()
+        .orElse(null);
+
+    if (classNode == null) {
+      return null;
+    }
+
+    // First, try to find a field with @Autowired or @Inject annotation
+    for (FieldNode field : classNode.fields) {
+      if (hasAnnotation(field, "Autowired") || hasAnnotation(field, "Inject")) {
+        return Type.getType(field.desc).getClassName();
+      }
+    }
+
+    // If not found, try to infer from the class name
+    String className = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
+    if (className.endsWith("Controller")) {
+      return className.substring(0, className.length() - "Controller".length()) + "Service";
+    }
+
+    // If still not found, return null
+    return null;
+  }
+
+  private void identifyAsyncApis(APIInfo apiInfo) {
+    for (APIInfo.ExposedAPI api : apiInfo.getExposedApis()) {
+      boolean isAsync = isAsyncMethod(api) ||
+          hasReactiveReturnType(api.getReturnType()) ||
+          isMessagingMethod(api);
+      api.setAsync(isAsync);
+    }
+  }
+
+  private void handleApiVersioning(APIInfo apiInfo) {
+    for (APIInfo.ExposedAPI api : apiInfo.getExposedApis()) {
+      String path = api.getPath();
+      if (path.matches("/v\\d+/.*")) {
+        String[] parts = path.split("/");
+        api.setVersion(parts[1]);
+        api.setPath("/" + String.join("/", Arrays.copyOfRange(parts, 2, parts.length)));
+      }
+    }
+  }
+
+  private boolean isServiceMethod(MethodInsnNode methodInsn, List<ClassNode> allClasses) {
+    ClassNode targetClass = allClasses.stream()
+        .filter(cn -> cn.name.equals(methodInsn.owner))
+        .findFirst()
+        .orElse(null);
+    return targetClass != null && isService(targetClass);
+  }
+
+  private void extractDependencies(APIInfo apiInfo, List<ClassNode> allClasses) {
+    Set<String> dependencies = new HashSet<>();
+    for (APIInfo.ExposedAPI api : apiInfo.getExposedApis()) {
+      String controllerName = api.getControllerClassName();
+      String methodName = api.getServiceMethod();
+      Set<String> calledMethods = serviceMethodCalls.get(controllerName + "." + methodName);
+      if (calledMethods != null) {
+        for (String calledMethod : calledMethods) {
+          String calledServiceName = calledMethod.substring(0, calledMethod.lastIndexOf('.'));
+          dependencies.add(calledServiceName);
+          addTransitiveDependencies(dependencies, calledServiceName, allClasses);
+        }
+      }
+    }
+    apiInfo.setDependencies(new ArrayList<>(dependencies));
+  }
+
+  private void addTransitiveDependencies(Set<String> dependencies, String serviceName, List<ClassNode> allClasses) {
+    ClassNode serviceNode = allClasses.stream()
+        .filter(cn -> cn.name.equals(serviceName))
+        .findFirst()
+        .orElse(null);
+    if (serviceNode != null) {
+      for (MethodNode methodNode : serviceNode.methods) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+          if (insn instanceof MethodInsnNode) {
+            MethodInsnNode methodInsn = (MethodInsnNode) insn;
+            if (isServiceMethod(methodInsn, allClasses)) {
+              String calledService = methodInsn.owner;
+              if (dependencies.add(calledService)) {
+                addTransitiveDependencies(dependencies, calledService, allClasses);
               }
             }
           }
         }
       }
     }
+  }
 
-    // Check for OpenAPI interface or class naming conventions
-    if ((classNode.access & Opcodes.ACC_INTERFACE) != 0 || (classNode.access & Opcodes.ACC_ABSTRACT) != 0) {
-      if (classNode.name.endsWith("Api") || classNode.name.endsWith("Controller")
-          || classNode.name.endsWith("Resource")) {
-        return true;
-      }
-    }
+  private boolean isAsyncMethod(APIInfo.ExposedAPI api) {
+    return api.isAsync() || // Check if it's already marked as async
+        api.getServiceMethod().contains("Async") || // Check method name
+        api.getReturnType().contains("CompletableFuture") ||
+        api.getReturnType().contains("Mono") ||
+        api.getReturnType().contains("Flux") ||
+        isMessagingMethod(api);
+  }
 
-    // Check for specific OpenAPI annotations
-    if (hasOpenAPIAnnotations(classNode)) {
-      return true;
-    }
+  private boolean isMessagingMethod(APIInfo.ExposedAPI api) {
+    // Check for common messaging annotations in the method name or class name
+    return api.getServiceMethod().contains("RabbitListener") ||
+        api.getServiceMethod().contains("KafkaListener") ||
+        api.getServiceMethod().contains("JmsListener") ||
+        api.getControllerClassName().contains("Messaging");
+  }
 
-    // Check for Spring Web annotations
-    if (hasSpringWebAnnotations(classNode)) {
-      return true;
-    }
+  private boolean isAsyncMethod(MethodNode methodNode) {
+    return hasAnnotation(methodNode, "Async") ||
+        methodNode.desc.contains("CompletableFuture") ||
+        methodNode.desc.contains("Mono") ||
+        methodNode.desc.contains("Flux") ||
+        isMessagingMethod(methodNode);
+  }
 
-    return false;
+  private boolean isMessagingMethod(MethodNode methodNode) {
+    return hasAnnotation(methodNode, "RabbitListener") ||
+        hasAnnotation(methodNode, "KafkaListener") ||
+        hasAnnotation(methodNode, "JmsListener");
+  }
+
+  private boolean hasReactiveReturnType(String returnType) {
+    return returnType.contains("Mono") || returnType.contains("Flux");
+  }
+
+  private boolean isApiClass(ClassNode classNode) {
+    return isSpringController(classNode) ||
+        isQuarkusResource(classNode) ||
+        isMicronautController(classNode) ||
+        isVertxVerticle(classNode) ||
+        isOpenAPIClass(classNode);
+  }
+
+  private boolean isSpringController(ClassNode classNode) {
+    return hasAnnotation(classNode, "RestController") ||
+        hasAnnotation(classNode, "Controller");
+  }
+
+  private boolean isQuarkusResource(ClassNode classNode) {
+    return hasAnnotation(classNode, "Path");
+  }
+
+  private boolean isMicronautController(ClassNode classNode) {
+    return hasAnnotation(classNode, "Controller");
+  }
+
+  private boolean isVertxVerticle(ClassNode classNode) {
+    return classNode.superName != null && classNode.superName.contains("AbstractVerticle");
+  }
+
+  private boolean isOpenAPIClass(ClassNode classNode) {
+    return hasAnnotation(classNode, "OpenAPIDefinition") ||
+        classNode.name.endsWith("Api") ||
+        classNode.name.endsWith("Resource");
   }
 
   private boolean hasOpenAPIAnnotations(ClassNode classNode) {
@@ -119,283 +298,74 @@ public class APIInventoryExtractor {
     return false;
   }
 
-  private List<APIInfo> extractAPIsFromClass(ClassNode classNode) {
-    return classNode.methods.stream()
-        .map(methodNode -> extractAPIInfo(classNode, methodNode))
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+  private List<APIInfo.ExposedAPI> extractAPIsFromClass(ClassNode classNode, List<ClassNode> allClasses,
+      String apiVersion) {
+    List<APIInfo.ExposedAPI> apis = new ArrayList<>();
+    String classLevelPath = extractClassLevelPath(classNode);
+
+    for (MethodNode methodNode : classNode.methods) {
+      APIInfo.ExposedAPI api = extractAPIInfo(classNode, methodNode, classLevelPath, apiVersion, allClasses);
+      if (api != null) {
+        List<APIInfo.ExternalAPI> externalAPIs = extractExternalAPICalls(classNode, methodNode, allClasses);
+        api.setExternalAPIs(externalAPIs);
+        apis.add(api);
+      }
+    }
+
+    return apis;
   }
 
-  private APIInfo extractAPIInfo(ClassNode classNode, MethodNode methodNode) {
+  private APIInfo.ExposedAPI extractAPIInfo(ClassNode classNode, MethodNode methodNode, String classLevelPath,
+      String apiVersion, List<ClassNode> allClasses) {
     String httpMethod = extractHttpMethod(methodNode);
-    String methodPath = extractPath(classNode, methodNode);
-
-    if (httpMethod == null || methodPath == null) {
-      return null;
-    }
-
-    String serviceName = extractServiceName(classNode);
-    String apiName = extractApiName(methodNode);
-    String description = extractDescription(methodNode);
-    String apiEndpoint = constructApiEndpoint(methodPath);
-    String methodName = methodNode.name;
-    String className = classNode.name;
-    String version = extractVersion(classNode, methodNode);
-    List<String> serviceDependencies = extractServiceDependencies(methodNode);
-    String returnType = extractReturnType(methodNode);
+    String methodPath = extractMethodPath(methodNode);
+    String fullPath = combinePaths(apiVersion, classLevelPath, methodPath);
+    String serviceMethod = methodNode.name;
     List<APIInfo.ParameterInfo> parameters = extractParameters(methodNode);
+    String returnType = extractReturnType(methodNode);
+    String controllerClassName = classNode.name;
+    String serviceClassName = extractServiceClassName(classNode);
     boolean isAsync = isAsyncMethod(methodNode);
+    List<APIInfo.ExternalAPI> externalAPIs = extractExternalAPICalls(classNode, methodNode, allClasses);
 
-    return new APIInfo(
-        serviceName,
-        apiName,
-        methodName,
-        description,
-        apiEndpoint,
-        methodPath,
+    return new APIInfo.ExposedAPI(
+        fullPath,
         httpMethod,
-        version,
-        serviceDependencies,
-        returnType,
+        serviceMethod,
         parameters,
-        className,
-        isAsync);
+        returnType,
+        controllerClassName,
+        serviceClassName,
+        isAsync,
+        externalAPIs,
+        apiVersion);
   }
 
-  private String constructApiEndpoint(String methodPath) {
-
-    // Ensure the path starts with a slash
-    return basePath + "/" + trimSlashes(methodPath);
-  }
-
-  private String trimSlashes(String path) {
-    if (path == null || path.isEmpty()) {
-      return "";
-    }
-    return path.replaceAll("^/+|/+$", "");
-  }
-
-  private String extractServiceName(ClassNode classNode) {
-    // First, try to get the service name from spring.application.name
-    String serviceName = configProperties.get("spring.application.name");
-
-    // If not found, use the fileName without version
-    if (serviceName == null || serviceName.isEmpty()) {
-      serviceName = removeVersion(fileName);
-    }
-
-    // If still not found, fallback to the original method
-    if (serviceName == null || serviceName.isEmpty()) {
-      serviceName = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
-      serviceName = serviceName.replaceAll("(Controller|Service|Resource|Api)$", "");
-    }
-
-    return serviceName;
-  }
-
-  private String removeVersion(String fileName) {
-    if (fileName == null || fileName.isEmpty()) {
-      return null;
-    }
-    // Remove file extension if present
-    fileName = fileName.replaceFirst("[.][^.]+$", "");
-    // Remove version number (assuming version is at the end and separated by a
-    // hyphen)
-    return fileName.replaceFirst("-\\d+(\\.\\d+)*$", "");
-  }
-
-  private String extractApiName(MethodNode methodNode) {
-    return methodNode.name;
-  }
-
-  private String extractDescription(MethodNode methodNode) {
-    // Check for @ApiOperation annotation (Swagger)
-    String swaggerDescription = extractSwaggerDescription(methodNode);
-    if (swaggerDescription != null) {
-      return swaggerDescription;
-    }
-
-    // Check for @Description annotation (custom)
-    String customDescription = extractCustomDescription(methodNode);
-    if (customDescription != null) {
-      return customDescription;
-    }
-
-    // Extract from JavaDoc comment
-    String javadocDescription = extractJavadocDescription(methodNode);
-    if (javadocDescription != null) {
-      return javadocDescription;
-    }
-
-    // Default to method name if no description found
-    return methodNode.name;
-  }
-
-  private String extractSwaggerDescription(MethodNode methodNode) {
-    if (methodNode.visibleAnnotations != null) {
-      for (AnnotationNode annotation : methodNode.visibleAnnotations) {
-        if (annotation.desc.contains("ApiOperation")) {
-          for (int i = 0; i < annotation.values.size(); i += 2) {
-            if (annotation.values.get(i).equals("value")) {
-              return (String) annotation.values.get(i + 1);
-            }
-          }
-        }
+  private String extractClassLevelPath(ClassNode classNode) {
+    for (AnnotationNode an : classNode.visibleAnnotations) {
+      if (an.desc.contains("RequestMapping")) {
+        return extractAnnotationValue(an, "value");
       }
     }
-    return null;
+    return "";
   }
 
-  private String extractCustomDescription(MethodNode methodNode) {
-    if (methodNode.visibleAnnotations != null) {
-      for (AnnotationNode annotation : methodNode.visibleAnnotations) {
-        if (annotation.desc.contains("Description")) {
-          for (int i = 0; i < annotation.values.size(); i += 2) {
-            if (annotation.values.get(i).equals("value")) {
-              return (String) annotation.values.get(i + 1);
-            }
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  private String extractJavadocDescription(MethodNode methodNode) {
-    if (methodNode.visibleAnnotations != null) {
-      for (AnnotationNode annotation : methodNode.visibleAnnotations) {
-        if (annotation.desc.equals("Ljava/lang/Deprecated;")) {
-          List<Object> values = annotation.values;
-          if (values != null && values.size() > 1) {
-            Object descriptionObj = values.get(1);
-            if (descriptionObj instanceof String) {
-              String fullJavadoc = (String) descriptionObj;
-              // Extract the first sentence from the JavaDoc
-              Pattern pattern = Pattern.compile("^\\s*([^.!?]+[.!?])");
-              Matcher matcher = pattern.matcher(fullJavadoc);
-              if (matcher.find()) {
-                return matcher.group(1).trim();
-              }
-            }
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  private String extractVersion(ClassNode classNode, MethodNode methodNode) {
-    // Extract version from class or method annotations
-    return "1.0";
-  }
-
-  private List<String> extractServiceDependencies(MethodNode methodNode) {
-    Set<String> dependencies = new HashSet<>();
-
-    if (methodNode.instructions == null) {
-      return new ArrayList<>(dependencies);
-    }
-
-    for (AbstractInsnNode insn : methodNode.instructions) {
-      if (insn instanceof MethodInsnNode) {
-        MethodInsnNode methodInsn = (MethodInsnNode) insn;
-        String dependency = extractDependency(methodInsn);
-        if (dependency != null) {
-          dependencies.add(dependency);
-        }
+  private String extractServiceClassName(ClassNode classNode) {
+    // First, try to find a field with @Autowired or @Inject annotation
+    for (FieldNode field : classNode.fields) {
+      if (hasAnnotation(field, "Autowired") || hasAnnotation(field, "Inject")) {
+        return Type.getType(field.desc).getClassName();
       }
     }
 
-    return new ArrayList<>(dependencies);
-  }
-
-  private String extractDependency(MethodInsnNode methodInsn) {
-    String owner = methodInsn.owner.replace('/', '.');
-
-    // Check if the owner class is a known service from config properties
-    String serviceName = getServiceNameFromConfig(owner);
-    if (serviceName != null) {
-      return serviceName;
+    // If not found, try to infer from the class name
+    String className = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
+    if (className.endsWith("Controller")) {
+      return className.substring(0, className.length() - "Controller".length()) + "Service";
     }
 
-    // Check for common patterns in class names that might indicate a service
-    if (owner.endsWith("Service") || owner.endsWith("Client") || owner.endsWith("Repository")) {
-      return owner.substring(owner.lastIndexOf('.') + 1);
-    }
-
-    // Check for specific method calls that might indicate a service dependency
-    if (isHttpClientMethod(methodInsn) || isRepositoryMethod(methodInsn)) {
-      return owner.substring(owner.lastIndexOf('.') + 1);
-    }
-
+    // If still not found, return null
     return null;
-  }
-
-  private String getServiceNameFromConfig(String className) {
-    // Check if the class name matches any service name in the config
-    for (Map.Entry<String, String> entry : configProperties.entrySet()) {
-      if (entry.getKey().startsWith("service.") && entry.getKey().endsWith(".class")) {
-        if (entry.getValue().equals(className)) {
-          // Extract service name from the config key
-          return entry.getKey().substring("service.".length(), entry.getKey().length() - ".class".length());
-        }
-      }
-    }
-    return null;
-  }
-
-  private boolean isHttpClientMethod(MethodInsnNode methodInsn) {
-    // Check for common HTTP client method names
-    String methodName = methodInsn.name.toLowerCase();
-    return methodName.equals("get") || methodName.equals("post") || methodName.equals("put")
-        || methodName.equals("delete") || methodName.equals("patch");
-  }
-
-  private boolean isRepositoryMethod(MethodInsnNode methodInsn) {
-    // Check for common repository method names
-    String methodName = methodInsn.name.toLowerCase();
-    return methodName.startsWith("find") || methodName.startsWith("save")
-        || methodName.startsWith("delete") || methodName.startsWith("update");
-  }
-
-  private boolean isApiEnabled(APIInfo apiInfo) {
-    String path = apiInfo.getPath();
-    if (apiInfo.getHttpMethod().equals("UNKNOWN"))
-      return false;
-
-    // Check if the API is in the ignored paths
-    if (isPathIgnored(path)) {
-      logger.debug("API {} is ignored by configuration", path);
-      return false;
-    }
-
-    // Check if the API is enabled
-    if (isPathEnabled(path)) {
-      logger.debug("API {} is enabled", path);
-      return true;
-    }
-
-    logger.debug("API {} is not enabled by configuration", path);
-    return false;
-  }
-
-  private boolean isPathIgnored(String path) {
-    return ignoredPaths.stream()
-        .anyMatch(ignoredPath -> path.startsWith(ignoredPath));
-  }
-
-  private boolean isPathEnabled(String path) {
-    if (path.isEmpty()) {
-      return false;
-    }
-    // If no specific endpoints are enabled, all non-ignored endpoints are
-    // considered enabled
-    if (enabledEndpoints.isEmpty()) {
-      return true;
-    }
-
-    return enabledEndpoints.stream()
-        .anyMatch(enabledPath -> path.startsWith(enabledPath));
   }
 
   private Set<String> parseCommaSeparatedConfig(String key) {
@@ -412,9 +382,26 @@ public class APIInventoryExtractor {
         .replaceAll("//+", "/");
   }
 
+  private String extractApiVersion(List<ClassNode> allClasses) {
+    for (ClassNode classNode : allClasses) {
+      if (hasAnnotation(classNode, "ApiVersion")) {
+        return extractAnnotationValue(classNode, "ApiVersion", "value");
+      }
+    }
+    return "";
+  }
+
+  private String extractAnnotationValue(ClassNode classNode, String annotationName, String key) {
+    for (AnnotationNode an : classNode.visibleAnnotations) {
+      if (an.desc.contains(annotationName)) {
+        return extractAnnotationValue(an, key);
+      }
+    }
+    return "";
+  }
+
   private boolean isController(ClassNode classNode) {
-    return hasAnnotation(classNode, "RestController") || hasAnnotation(classNode, "Controller")
-        || hasAnnotation(classNode, "Path");
+    return hasAnnotation(classNode, "RestController") || hasAnnotation(classNode, "Controller");
   }
 
   private boolean isService(ClassNode classNode) {
@@ -426,6 +413,37 @@ public class APIInventoryExtractor {
     return classNode.visibleAnnotations != null &&
         classNode.visibleAnnotations.stream()
             .anyMatch(an -> an.desc.contains(annotationName));
+  }
+
+  private boolean hasAnnotation(MethodNode methodNode, String annotationName) {
+    return methodNode.visibleAnnotations != null &&
+        methodNode.visibleAnnotations.stream()
+            .anyMatch(an -> an.desc.contains(annotationName));
+  }
+
+  private boolean hasAnnotation(FieldNode field, String annotationName) {
+    if (field.visibleAnnotations != null) {
+      for (AnnotationNode annotation : field.visibleAnnotations) {
+        if (annotation.desc.contains(annotationName)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private boolean hasAnnotation(String className, String methodName, String annotationName) {
+    ClassNode classNode = findClassNode(className);
+    if (classNode != null) {
+      for (MethodNode methodNode : classNode.methods) {
+        if (methodNode.name.equals(methodName)) {
+          return methodNode.visibleAnnotations != null &&
+              methodNode.visibleAnnotations.stream()
+                  .anyMatch(an -> an.desc.contains(annotationName));
+        }
+      }
+    }
+    return false;
   }
 
   String extractReturnType(MethodNode methodNode) {
@@ -537,16 +555,19 @@ public class APIInventoryExtractor {
           return "RequestParam";
         if (an.desc.contains("RequestBody"))
           return "RequestBody";
+        if (an.desc.contains("RequestPart"))
+          return "RequestPart";
+        if (an.desc.contains("RequestHeader"))
+          return "RequestHeader";
+        if (an.desc.contains("CookieValue"))
+          return "CookieValue";
+        if (an.desc.contains("MatrixVariable"))
+          return "MatrixVariable";
+
         // Add more annotation checks as needed
       }
     }
     return null;
-  }
-
-  private boolean isAsyncMethod(MethodNode methodNode) {
-    return hasAnnotation(methodNode, "Async") ||
-        Type.getReturnType(methodNode.desc).getClassName().contains("Mono") ||
-        Type.getReturnType(methodNode.desc).getClassName().contains("Flux");
   }
 
   private String extractHttpMethod(MethodNode methodNode) {
@@ -649,10 +670,566 @@ public class APIInventoryExtractor {
     return null;
   }
 
-  private boolean hasAnnotation(MethodNode methodNode, String annotationName) {
-    return methodNode.visibleAnnotations != null &&
-        methodNode.visibleAnnotations.stream()
-            .anyMatch(an -> an.desc.contains(annotationName));
+  private String extractApiVersion(ClassNode classNode) {
+    for (AnnotationNode an : classNode.visibleAnnotations) {
+      if (an.desc.contains("ApiVersion")) {
+        return extractAnnotationValue(an, "value");
+      }
+    }
+
+    String className = classNode.name;
+    Pattern versionPattern = Pattern.compile("v\\d+");
+    Matcher matcher = versionPattern.matcher(className);
+    if (matcher.find()) {
+      return matcher.group();
+    }
+
+    return "";
   }
 
+  private String extractAnnotationValue(AnnotationNode an, String key) {
+    if (an.values != null) {
+      for (int i = 0; i < an.values.size(); i += 2) {
+        if (an.values.get(i).equals(key)) {
+          return an.values.get(i + 1).toString();
+        }
+      }
+    }
+    return null;
+  }
+
+  private List<APIInfo.ExternalAPI> extractHttpClientCalls(String controllerClassName, String serviceMethod,
+      List<ClassNode> allClasses, Map<String, String> configProperties) {
+    List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
+    ClassNode controllerClass = findClassNode(controllerClassName, allClasses);
+    if (controllerClass != null) {
+      MethodNode methodNode = findMethodNode(controllerClass, serviceMethod);
+      if (methodNode != null) {
+        for (AbstractInsnNode insn : methodNode.instructions) {
+          if (insn instanceof MethodInsnNode) {
+            MethodInsnNode methodInsn = (MethodInsnNode) insn;
+            if (isHttpClientMethod(methodInsn)) {
+              String url = extractUrlFromHttpClientCall(methodInsn, configProperties);
+              String httpMethod = extractHttpMethodFromHttpClientCall(methodInsn);
+              String targetService = extractTargetService(methodInsn, allClasses);
+              boolean isAsync = isAsyncCall(methodInsn);
+              String responseType = extractResponseType(methodInsn, methodNode);
+              externalAPIs
+                  .add(new APIInfo.ExternalAPI(url, httpMethod, serviceMethod, isAsync, targetService, responseType));
+            }
+          }
+        }
+      }
+    }
+    return externalAPIs;
+  }
+
+  private ClassNode findClassNode(String controllerClassName, List<ClassNode> allClasses) {
+
+    return allClasses.stream()
+        .filter(cn -> cn.name.equals(controllerClassName))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private MethodNode findMethodNode(ClassNode classNode, String serviceMethod) {
+    return classNode.methods.stream()
+        .filter(mn -> mn.name.equals(serviceMethod))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private boolean isHttpClientMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("RestTemplate") ||
+        methodInsn.owner.contains("WebClient") ||
+        methodInsn.owner.contains("HttpClient") ||
+        methodInsn.owner.contains("OkHttpClient");
+  }
+
+  private String extractUrlFromHttpClientCall(MethodInsnNode methodInsn, Map<String, String> configProperties) {
+    String url = null;
+    if (methodInsn.owner.contains("RestTemplate")) {
+      url = extractUrlFromRestTemplateCall(methodInsn);
+    } else if (methodInsn.owner.contains("WebClient")) {
+      url = extractUrlFromWebClientCall(methodInsn);
+    } else if (methodInsn.owner.contains("HttpClient")) {
+      url = extractUrlFromHttpClientCall(methodInsn);
+    }
+
+    if (url != null) {
+      // Resolve placeholders using configProperties
+      for (Map.Entry<String, String> entry : configProperties.entrySet()) {
+        url = url.replace("${" + entry.getKey() + "}", entry.getValue());
+      }
+    }
+    return url;
+  }
+
+  private String extractUrlFromRestTemplateCall(MethodInsnNode methodInsn) {
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+      if (insn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+        if (ldcInsn.cst instanceof String) {
+          String potentialUrl = (String) ldcInsn.cst;
+          if (potentialUrl.startsWith("http://") || potentialUrl.startsWith("https://")) {
+            return potentialUrl;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractUrlFromWebClientCall(MethodInsnNode methodInsn) {
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode prevMethodInsn = (MethodInsnNode) insn;
+        if (prevMethodInsn.name.equals("uri")) {
+          return extractStringArgument(prevMethodInsn);
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractUrlFromHttpClientCall(MethodInsnNode methodInsn) {
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode prevMethodInsn = (MethodInsnNode) insn;
+        if (prevMethodInsn.name.equals("create")) {
+          return extractStringArgument(prevMethodInsn);
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractStringArgument(MethodInsnNode methodInsn) {
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+      if (insn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+        if (ldcInsn.cst instanceof String) {
+          return (String) ldcInsn.cst;
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractHttpMethodFromHttpClientCall(MethodInsnNode methodInsn) {
+    String methodName = methodInsn.name.toLowerCase();
+    if (methodName.contains("get"))
+      return "GET";
+    if (methodName.contains("post"))
+      return "POST";
+    if (methodName.contains("put"))
+      return "PUT";
+    if (methodName.contains("delete"))
+      return "DELETE";
+    if (methodName.contains("patch"))
+      return "PATCH";
+    if (methodName.equals("exchange") || methodName.equals("send") || methodName.equals("sendAsync")) {
+      // For these methods, we need to check the method arguments to determine the
+      // HTTP method
+      return extractHttpMethodFromArguments(methodInsn);
+    }
+    return "UNKNOWN";
+  }
+
+  private String extractHttpMethodFromArguments(MethodInsnNode methodInsn) {
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+      if (insn instanceof FieldInsnNode) {
+        FieldInsnNode fieldInsn = (FieldInsnNode) insn;
+        if (fieldInsn.owner.contains("HttpMethod")) {
+          return fieldInsn.name;
+        }
+      }
+    }
+    return "UNKNOWN";
+  }
+
+  private List<APIInfo.ExternalAPI> extractFeignClientCalls(String controllerClassName, String serviceMethod,
+      List<ClassNode> allClasses) {
+    List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
+    ClassNode controllerClass = findClassNode(controllerClassName, allClasses);
+    if (controllerClass == null)
+      return externalAPIs;
+
+    MethodNode methodNode = findMethodNode(controllerClass, serviceMethod);
+    if (methodNode == null)
+      return externalAPIs;
+
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        ClassNode feignClientClass = findFeignClientClass(methodInsn.owner, allClasses);
+        if (feignClientClass != null) {
+          String baseUrl = extractFeignClientBaseUrl(feignClientClass);
+          MethodNode feignMethod = findMethodNode(feignClientClass, methodInsn.name, methodInsn.desc);
+          if (feignMethod != null) {
+            String httpMethod = extractFeignMethodHttpMethod(feignMethod);
+            String path = extractFeignMethodPath(feignMethod);
+            String fullUrl = baseUrl + path;
+            externalAPIs.add(
+                new APIInfo.ExternalAPI(fullUrl, httpMethod, methodInsn.name, false, feignClientClass.name, "Unknown"));
+          }
+        }
+      }
+    }
+    return externalAPIs;
+  }
+
+  private ClassNode findFeignClientClass(String className, List<ClassNode> allClasses) {
+    return allClasses.stream()
+        .filter(cn -> cn.name.equals(className) && hasFeignClientAnnotation(cn))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private boolean hasFeignClientAnnotation(ClassNode classNode) {
+    return classNode.visibleAnnotations != null &&
+        classNode.visibleAnnotations.stream()
+            .anyMatch(an -> an.desc.contains("FeignClient"));
+  }
+
+  private String extractFeignClientBaseUrl(ClassNode feignClientClass) {
+    if (feignClientClass.visibleAnnotations != null) {
+      for (AnnotationNode an : feignClientClass.visibleAnnotations) {
+        if (an.desc.contains("FeignClient")) {
+          String url = extractAnnotationValue(an, "url");
+          if (url != null) {
+            return url;
+          }
+          String name = extractAnnotationValue(an, "name");
+          if (name != null) {
+            return "${" + name + "}";
+          }
+        }
+      }
+    }
+    return "";
+  }
+
+  private String extractFeignMethodHttpMethod(MethodNode feignMethod) {
+    if (feignMethod.visibleAnnotations != null) {
+      for (AnnotationNode an : feignMethod.visibleAnnotations) {
+        if (an.desc.contains("GetMapping"))
+          return "GET";
+        if (an.desc.contains("PostMapping"))
+          return "POST";
+        if (an.desc.contains("PutMapping"))
+          return "PUT";
+        if (an.desc.contains("DeleteMapping"))
+          return "DELETE";
+        if (an.desc.contains("PatchMapping"))
+          return "PATCH";
+        if (an.desc.contains("RequestMapping")) {
+          String method = extractAnnotationValue(an, "method");
+          if (method != null) {
+            return method.toUpperCase();
+          }
+        }
+      }
+    }
+    return "UNKNOWN";
+  }
+
+  private String extractFeignMethodPath(MethodNode feignMethod) {
+    if (feignMethod.visibleAnnotations != null) {
+      for (AnnotationNode an : feignMethod.visibleAnnotations) {
+        if (an.desc.contains("RequestMapping") ||
+            an.desc.contains("GetMapping") ||
+            an.desc.contains("PostMapping") ||
+            an.desc.contains("PutMapping") ||
+            an.desc.contains("DeleteMapping") ||
+            an.desc.contains("PatchMapping")) {
+          return extractAnnotationValue(an, "value");
+        }
+      }
+    }
+    return "";
+  }
+
+  private List<APIInfo.ExternalAPI> extractMessageBrokerCalls(String controllerClassName, String serviceMethod,
+      List<ClassNode> allClasses) {
+    List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
+    ClassNode controllerClass = findClassNode(controllerClassName, allClasses);
+    if (controllerClass == null)
+      return externalAPIs;
+
+    MethodNode methodNode = findMethodNode(controllerClass, serviceMethod);
+    if (methodNode == null)
+      return externalAPIs;
+
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        if (isMessageBrokerMethod(methodInsn)) {
+          String brokerType = extractBrokerType(methodInsn);
+          String topic = extractTopic(methodInsn);
+          externalAPIs.add(new APIInfo.ExternalAPI(topic, "PUBLISH", methodInsn.name, true, brokerType, "void"));
+        }
+      }
+    }
+    return externalAPIs;
+  }
+
+  private boolean isMessageBrokerMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("KafkaTemplate") ||
+        methodInsn.owner.contains("RabbitTemplate") ||
+        methodInsn.owner.contains("JmsTemplate");
+  }
+
+  private String extractBrokerType(MethodInsnNode methodInsn) {
+    if (methodInsn.owner.contains("KafkaTemplate"))
+      return "Kafka";
+    if (methodInsn.owner.contains("RabbitTemplate"))
+      return "RabbitMQ";
+    if (methodInsn.owner.contains("JmsTemplate"))
+      return "JMS";
+    return "Unknown";
+  }
+
+  private String extractTopic(MethodInsnNode methodInsn) {
+    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
+      if (insn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+        if (ldcInsn.cst instanceof String) {
+          return (String) ldcInsn.cst;
+        }
+      }
+    }
+    return "Unknown";
+  }
+
+  private void extractExternalAPICalls(APIInfo apiInfo, List<ClassNode> allClasses,
+      Map<String, String> configProperties) {
+    for (APIInfo.ExposedAPI api : apiInfo.getExposedApis()) {
+      List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
+      externalAPIs.addAll(
+          extractHttpClientCalls(api.getControllerClassName(), api.getServiceMethod(), allClasses, configProperties));
+      externalAPIs.addAll(extractFeignClientCalls(api.getControllerClassName(), api.getServiceMethod(), allClasses));
+      externalAPIs.addAll(extractMessageBrokerCalls(api.getControllerClassName(), api.getServiceMethod(), allClasses));
+      api.setExternalAPIs(externalAPIs);
+    }
+  }
+
+  private List<APIInfo.ExternalAPI> extractExternalAPICalls(ClassNode classNode, MethodNode methodNode,
+      List<ClassNode> allClasses) {
+    List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        APIInfo.ExternalAPI externalAPI = extractExternalAPICall(methodInsn, classNode, methodNode, allClasses);
+        if (externalAPI != null) {
+          externalAPIs.add(externalAPI);
+        }
+      }
+    }
+    return externalAPIs;
+  }
+
+  private APIInfo.ExternalAPI extractExternalAPICall(MethodInsnNode methodInsn, ClassNode classNode,
+      MethodNode methodNode, List<ClassNode> allClasses) {
+    String url = extractUrlFromMethodInsn(methodInsn, classNode, methodNode);
+    String httpMethod = extractHttpMethodFromMethodInsn(methodInsn);
+    boolean isAsync = isAsyncCall(methodInsn);
+    String targetService = extractTargetService(methodInsn, allClasses);
+    String responseType = extractResponseType(methodInsn, methodNode);
+
+    if (url != null && httpMethod != null) {
+      return new APIInfo.ExternalAPI(url, httpMethod, methodNode.name, isAsync, targetService, responseType);
+    }
+    return null;
+  }
+
+  private boolean isAsyncCall(MethodInsnNode methodInsn) {
+    return methodInsn.name.contains("Async") || methodInsn.desc.contains("Mono") || methodInsn.desc.contains("Flux");
+  }
+
+  private String extractTargetService(MethodInsnNode methodInsn, List<ClassNode> allClasses) {
+    ClassNode targetClass = allClasses.stream()
+        .filter(cn -> cn.name.equals(methodInsn.owner))
+        .findFirst()
+        .orElse(null);
+
+    if (targetClass != null && targetClass.visibleAnnotations != null) {
+      for (AnnotationNode an : targetClass.visibleAnnotations) {
+        if (an.desc.contains("FeignClient")) {
+          return extractAnnotationValue(an, "name");
+        }
+      }
+    }
+    return "UnknownService";
+  }
+
+  private String extractResponseType(MethodInsnNode methodInsn, MethodNode methodNode) {
+    if (methodNode.desc == null) {
+      return "Unknown";
+    }
+
+    Type returnType = Type.getReturnType(methodNode.desc);
+    if (returnType.getSort() == Type.OBJECT) {
+      String className = returnType.getClassName();
+      if (className.contains("Mono") || className.contains("Flux")) {
+        if (methodNode.signature != null) {
+          Type[] genericTypes = Type.getArgumentTypes(methodNode.signature);
+          if (genericTypes.length > 0) {
+            return genericTypes[0].getClassName();
+          }
+        }
+      }
+      return className;
+    }
+    return returnType.getClassName();
+  }
+
+  private String extractUrlFromMethodInsn(MethodInsnNode methodInsn, ClassNode classNode, MethodNode methodNode) {
+    String url = null;
+
+    // Check if the method is annotated with a URL
+    if (methodNode.visibleAnnotations != null) {
+      for (AnnotationNode an : methodNode.visibleAnnotations) {
+        if (an.desc.contains("RequestMapping") || an.desc.contains("GetMapping") ||
+            an.desc.contains("PostMapping") || an.desc.contains("PutMapping") ||
+            an.desc.contains("DeleteMapping") || an.desc.contains("PatchMapping")) {
+          url = extractAnnotationValue(an, "value");
+          if (url != null) {
+            break;
+          }
+        }
+      }
+    }
+
+    // If URL is not found in method annotation, check class-level annotation
+    if (url == null && classNode.visibleAnnotations != null) {
+      for (AnnotationNode an : classNode.visibleAnnotations) {
+        if (an.desc.contains("RequestMapping")) {
+          String classLevelPath = extractAnnotationValue(an, "value");
+          if (classLevelPath != null) {
+            url = classLevelPath;
+            break;
+          }
+        }
+      }
+    }
+
+    // If still not found, try to extract from method instructions
+    if (url == null) {
+      for (AbstractInsnNode insn : methodNode.instructions) {
+        if (insn instanceof LdcInsnNode) {
+          LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+          if (ldcInsn.cst instanceof String) {
+            String potentialUrl = (String) ldcInsn.cst;
+            if (potentialUrl.startsWith("/") || potentialUrl.startsWith("http")) {
+              url = potentialUrl;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return url;
+  }
+
+  private String extractHttpMethodFromMethodInsn(MethodInsnNode methodInsn) {
+    if (methodInsn == null) {
+      return null;
+    }
+
+    String httpMethod = extractHttpMethodFromName(methodInsn.name);
+    if (httpMethod != null) {
+      return httpMethod;
+    }
+
+    ClassNode ownerClass = findClassNode(methodInsn.owner);
+    if (ownerClass == null) {
+      return null;
+    }
+
+    MethodNode targetMethod = findMethodNode(ownerClass, methodInsn.name, methodInsn.desc);
+    if (targetMethod == null) {
+      return null;
+    }
+
+    httpMethod = extractHttpMethodFromAnnotations(targetMethod);
+    if (httpMethod != null) {
+      return httpMethod;
+    }
+
+    return extractHttpMethodFromInstructions(targetMethod);
+  }
+
+  private MethodNode findMethodNode(ClassNode classNode, String methodName, String methodDesc) {
+    return classNode.methods.stream()
+        .filter(mn -> mn.name.equals(methodName) && mn.desc.equals(methodDesc))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private String extractHttpMethodFromAnnotations(MethodNode methodNode) {
+    if (methodNode.visibleAnnotations == null) {
+      return null;
+    }
+
+    for (AnnotationNode an : methodNode.visibleAnnotations) {
+      if (an.desc.contains("GetMapping"))
+        return "GET";
+      if (an.desc.contains("PostMapping"))
+        return "POST";
+      if (an.desc.contains("PutMapping"))
+        return "PUT";
+      if (an.desc.contains("DeleteMapping"))
+        return "DELETE";
+      if (an.desc.contains("PatchMapping"))
+        return "PATCH";
+      if (an.desc.contains("RequestMapping")) {
+        String method = extractAnnotationValue(an, "method");
+        if (method != null) {
+          return method.toUpperCase();
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private String extractHttpMethodFromInstructions(MethodNode methodNode) {
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+        if (ldcInsn.cst instanceof String) {
+          String constant = ((String) ldcInsn.cst).toUpperCase();
+          if (constant.equals("GET") || constant.equals("POST") || constant.equals("PUT") ||
+              constant.equals("DELETE") || constant.equals("PATCH")) {
+            return constant;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractHttpMethodFromName(String methodName) {
+    String lowerCaseName = methodName.toLowerCase();
+    if (lowerCaseName.contains("get"))
+      return "GET";
+    if (lowerCaseName.contains("post"))
+      return "POST";
+    if (lowerCaseName.contains("put"))
+      return "PUT";
+    if (lowerCaseName.contains("delete"))
+      return "DELETE";
+    if (lowerCaseName.contains("patch"))
+      return "PATCH";
+    return null;
+  }
+
+  private ClassNode findClassNode(String className) {
+    return allClasses.stream()
+        .filter(cn -> cn.name.equals(className))
+        .findFirst()
+        .orElse(null);
+  }
 }
