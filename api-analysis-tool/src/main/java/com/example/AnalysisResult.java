@@ -1,17 +1,15 @@
 package com.example;
 
 import java.util.List;
-import java.util.Map;
+
+import com.example.model.APIInfo;
 
 public class AnalysisResult {
   private APIInfo apiInventory;
-  private List<ExternalCallInfo> externalCalls;
   private List<DatabaseChangelogScanner.DatabaseChange> databaseChanges;
 
-  public AnalysisResult(APIInfo apiInventory, List<ExternalCallInfo> externalCalls,
-      List<DatabaseChangelogScanner.DatabaseChange> databaseChanges) {
+  public AnalysisResult(APIInfo apiInventory, List<DatabaseChangelogScanner.DatabaseChange> databaseChanges) {
     this.apiInventory = apiInventory;
-    this.externalCalls = externalCalls;
     this.databaseChanges = databaseChanges;
   }
 
@@ -25,15 +23,12 @@ public class AnalysisResult {
     this.apiInventory = apiInventory;
   }
 
-  public List<ExternalCallInfo> getExternalCalls() {
-    return externalCalls;
-  }
-
-  public void setExternalCalls(List<ExternalCallInfo> externalCalls) {
-    this.externalCalls = externalCalls;
-  }
-
   public List<DatabaseChangelogScanner.DatabaseChange> getDatabaseChanges() {
     return databaseChanges;
   }
+
+  public void setDatabaseChanges(List<DatabaseChangelogScanner.DatabaseChange> databaseChanges) {
+    this.databaseChanges = databaseChanges;
+  }
+
 }

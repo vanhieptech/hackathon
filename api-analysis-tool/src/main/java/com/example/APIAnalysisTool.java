@@ -6,16 +6,26 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.yaml.snakeyaml.Yaml;
 
+import com.example.model.APIInfo;
+
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @Service
 public class APIAnalysisTool {
@@ -23,9 +33,6 @@ public class APIAnalysisTool {
 
   @Autowired
   private ProjectScanner projectScanner;
-
-  @Autowired
-  private ExternalCallScanner externalCallScanner;
 
   @Autowired
   private DatabaseChangelogScanner databaseChangelogScanner;
@@ -60,19 +67,19 @@ public class APIAnalysisTool {
     projectFile.transferTo(projectPath.toFile());
 
     try {
-      Map<String, String> configProperties = projectScanner.loadProjectConfigProperties(projectPath);
+      Map<String, String> configProperties = projectScanner.loadProjectConfigProperties(projectPath.toString());
       List<ClassNode> allClasses = projectScanner.parseJavaClasses(projectPath);
 
-      APIInventoryExtractor extractor = new APIInventoryExtractor(configProperties, projectName, allClasses);
-      APIInfo apiInfo = extractor.extractExposedAPIs();
-      List<ExternalCallInfo> externalCalls = externalCallScanner.findExternalCalls(allClasses);
+      APIAnalyzer analyzer = new APIAnalyzer(configProperties, projectName, allClasses);
+      APIInfo apiInfo = analyzer.analyzeAPI();
       List<DatabaseChangelogScanner.DatabaseChange> databaseChanges = databaseChangelogScanner
           .scanChangelog(projectPath.toString());
 
-      return new AnalysisResult(apiInfo, externalCalls, databaseChanges);
+      return new AnalysisResult(apiInfo, databaseChanges);
     } finally {
       Files.deleteIfExists(projectPath);
       Files.deleteIfExists(tempDir);
     }
   }
+
 }

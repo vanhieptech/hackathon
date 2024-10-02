@@ -39,7 +39,6 @@ public class APIAnalysisController {
   private Map<String, Object> createProjectResponse(AnalysisResult result) {
     Map<String, Object> response = new HashMap<>();
     response.put("apiInventory", result.getApiInventory());
-    response.put("externalCalls", result.getExternalCalls());
     response.put("databaseChanges", result.getDatabaseChanges());
     return response;
   }

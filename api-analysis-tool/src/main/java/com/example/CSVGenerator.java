@@ -1,71 +1,63 @@
-package com.example;
+// package com.example;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.List;
+// import org.apache.commons.csv.CSVFormat;
+// import org.apache.commons.csv.CSVPrinter;
+// import org.slf4j.Logger;
+// import org.slf4j.LoggerFactory;
 
-public class CSVGenerator {
-  private static final Logger logger = LoggerFactory.getLogger(CSVGenerator.class);
+// import com.example.model.APIInfo;
 
-  public String generateCSV(APIInfo apiInventory, List<ExternalCallInfo> externalCalls, String projectName) {
-    String fileName = projectName + "_api_inventory.csv";
-    try (FileWriter writer = new FileWriter(fileName)) {
-      generateDefaultFormat(writer, apiInventory, externalCalls);
-      logger.info("CSV file generated successfully: {}", fileName);
-      return fileName;
-    } catch (IOException e) {
-      logger.error("Error generating CSV file: {}", e.getMessage());
-      return null;
-    }
-  }
+// import java.io.FileWriter;
+// import java.io.IOException;
+// import java.util.List;
 
-  private void generateDefaultFormat(FileWriter writer, APIInfo apiInventory,
-      List<ExternalCallInfo> externalCalls) throws IOException {
-    CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
-        .withHeader("Type", "Service Name", "API Name", "HTTP Method", "API Endpoint", "Description", "Version",
-            "Service Dependency", "Return Type", "Parameters"));
+// public class CSVGenerator {
+// private static final Logger logger =
+// LoggerFactory.getLogger(CSVGenerator.class);
 
-    for (APIInfo.ExposedAPI api : apiInventory.getExposedApis()) {
-      csvPrinter.printRecord(
-          "Internal",
-          apiInventory.getServiceName(),
-          api.getServiceMethod(),
-          api.getHttpMethod(),
-          api.getPath(),
-          "N/A",
-          "N/A",
-          api.getServiceClassName(),
-          api.getReturnType(),
-          formatParameters(api.getParameters()));
-    }
+// public String generateCSV(APIInfo apiInventory, String projectName) {
+// String fileName = projectName + "_api_inventory.csv";
+// try (FileWriter writer = new FileWriter(fileName)) {
+// generateDefaultFormat(writer, apiInventory);
+// logger.info("CSV file generated successfully: {}", fileName);
+// return fileName;
+// } catch (IOException e) {
+// logger.error("Error generating CSV file: {}", e.getMessage());
+// return null;
+// }
+// }
 
-    for (ExternalCallInfo externalCall : externalCalls) {
-      csvPrinter.printRecord(
-          "External",
-          externalCall.getServiceName(),
-          externalCall.getMethodName(),
-          externalCall.getHttpMethod(),
-          externalCall.getUrl() != null ? externalCall.getUrl() : "Unknown",
-          externalCall.getDescription(),
-          "N/A",
-          "N/A",
-          externalCall.getResponseType(),
-          String.join(";", externalCall.getParameters()));
-    }
+// private void generateDefaultFormat(FileWriter writer, APIInfo apiInventory)
+// throws IOException {
+// CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
+// .withHeader("Type", "Service Name", "API Name", "HTTP Method", "API
+// Endpoint", "Description", "Version",
+// "Service Dependency", "Return Type", "Parameters"));
 
-    csvPrinter.flush();
-  }
+// for (APIInfo.ExposedAPI api : apiInventory.getExposedApis()) {
+// csvPrinter.printRecord(
+// "Internal",
+// apiInventory.getServiceName(),
+// api.getServiceMethod(),
+// api.getHttpMethod(),
+// api.getPath(),
+// "N/A",
+// "N/A",
+// api.getServiceClassName(),
+// api.getReturnType(),
+// formatParameters(api.getParameters()));
+// }
 
-  private String formatParameters(List<APIInfo.ParameterInfo> parameters) {
-    if (parameters == null) {
-      return "";
-    }
-    return parameters.stream()
-        .map((APIInfo.ParameterInfo param) -> param.getType() + " " + param.getName())
-        .collect(java.util.stream.Collectors.joining(", "));
-  }
-}
+// csvPrinter.flush();
+// }
+
+// private String formatParameters(List<APIInfo.ParameterInfo> parameters) {
+// if (parameters == null) {
+// return "";
+// }
+// return parameters.stream()
+// .map((APIInfo.ParameterInfo param) -> param.getType() + " " +
+// param.getName())
+// .collect(java.util.stream.Collectors.joining(", "));
+// }
+// }

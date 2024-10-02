@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="appmap-project">
+    <option name="activeRecordingURL" value="http://localhost:8089" />
+    <option name="explainWithNavieOpened" value="true" />
+    <option name="recentRemoteRecordingURLs">
+      <list>
+        <option value="http://localhost:8089" />
+        <option value="http://localhost:8080" />
+      </list>
+    </option>
+  </component>
+</project>

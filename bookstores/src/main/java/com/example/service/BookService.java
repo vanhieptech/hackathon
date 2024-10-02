@@ -1,0 +1,9 @@
+package com.example.service;
+
+import com.example.model.Book;
+import java.util.List;
+import java.util.Optional;
+
+public interface BookService {
+    Optional<String> getBookWithAuthor(Long bookId);
+}

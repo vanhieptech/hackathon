@@ -1,9 +1,13 @@
+com/example/api/ApiUtil.class
 com/example/service/BookService.class
 com/example/dto/AuthorDTO.class
 com/example/service/impl/BookServiceImpl.class
 com/example/controller/BookController.class
+com/example/model/Author.class
 com/example/exception/AuthorNotFoundException.class
 com/example/service/AuthorServiceClient.class
 com/example/BookServiceApplication.class
 com/example/repository/BookRepository.class
 com/example/model/Book.class
+com/example/controller/AuthorController.class
+com/example/api/AuthorsApi.class
