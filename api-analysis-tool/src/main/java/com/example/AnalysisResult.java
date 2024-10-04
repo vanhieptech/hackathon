@@ -1,16 +1,19 @@
 package com.example;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.example.model.APIInfo;
 
+import liquibase.changelog.ChangeSet;
+
 public class AnalysisResult {
   private APIInfo apiInventory;
-  private List<DatabaseChangelogScanner.DatabaseChange> databaseChanges;
+  private List<ChangeSet> changeSets;
 
-  public AnalysisResult(APIInfo apiInventory, List<DatabaseChangelogScanner.DatabaseChange> databaseChanges) {
+  public AnalysisResult(APIInfo apiInventory) {
     this.apiInventory = apiInventory;
-    this.databaseChanges = databaseChanges;
+    this.changeSets = new ArrayList<>();
   }
 
   // Getters and setters for all fields
@@ -23,12 +26,12 @@ public class AnalysisResult {
     this.apiInventory = apiInventory;
   }
 
-  public List<DatabaseChangelogScanner.DatabaseChange> getDatabaseChanges() {
-    return databaseChanges;
+  public List<ChangeSet> getChangeSets() {
+    return changeSets;
   }
 
-  public void setDatabaseChanges(List<DatabaseChangelogScanner.DatabaseChange> databaseChanges) {
-    this.databaseChanges = databaseChanges;
+  public void setDatabaseChanges(List<ChangeSet> changeSets) {
+    this.changeSets = changeSets;
   }
 
 }

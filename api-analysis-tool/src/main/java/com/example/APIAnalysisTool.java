@@ -10,6 +10,8 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.example.model.APIInfo;
 
+import liquibase.changelog.ChangeSet;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,6 +50,8 @@ public class APIAnalysisTool {
             results.put(file.getOriginalFilename(), result);
           } catch (IOException e) {
             logger.error("Error analyzing project: " + file.getOriginalFilename(), e);
+          } catch (Exception e) {
+            logger.error(e.getMessage());
           }
         }, executor))
         .collect(Collectors.toList());
@@ -58,7 +62,7 @@ public class APIAnalysisTool {
     return results;
   }
 
-  private AnalysisResult analyzeProject(MultipartFile projectFile) throws IOException {
+  private AnalysisResult analyzeProject(MultipartFile projectFile) throws Exception {
     String projectName = projectFile.getOriginalFilename();
     logger.info("Starting project analysis for: {}", projectName);
 
@@ -72,10 +76,13 @@ public class APIAnalysisTool {
 
       APIAnalyzer analyzer = new APIAnalyzer(configProperties, projectName, allClasses);
       APIInfo apiInfo = analyzer.analyzeAPI();
-      List<DatabaseChangelogScanner.DatabaseChange> databaseChanges = databaseChangelogScanner
-          .scanChangelog(projectPath.toString());
-
-      return new AnalysisResult(apiInfo, databaseChanges);
+      // List<DatabaseChangelogScanner.DatabaseChange> databaseChanges =
+      // databaseChangelogScanner
+      // .scanChangelog(projectPath.toString());
+      LiquibaseChangeScanner scanner = new LiquibaseChangeScanner();
+      List<LiquibaseChangeScanner.ChangeSetInfo> changeSets = scanner.scanJarForDatabaseChanges(projectPath.toString(), configProperties);
+      scanner.printChangeSetSummary(changeSets);
+      return new AnalysisResult(apiInfo);
     } finally {
       Files.deleteIfExists(projectPath);
       Files.deleteIfExists(tempDir);

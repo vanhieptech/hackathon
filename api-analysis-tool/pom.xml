@@ -68,6 +68,7 @@
         <dependency>
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
+            <version>4.20.0</version> <!-- or the latest version -->
         </dependency>
         <dependency>
             <groupId>org.yaml</groupId>
