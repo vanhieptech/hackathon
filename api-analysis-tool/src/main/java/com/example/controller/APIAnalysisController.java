@@ -1,6 +1,7 @@
 package com.example.controller;
 
 import com.example.*;
+import com.example.LiquibaseChangeScanner.ChangeSetInfo;
 import com.example.model.APIInfo;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,15 +32,15 @@ public class APIAnalysisController {
 
       SequenceDiagramGenerator.DiagramOptions options = new SequenceDiagramGenerator.DiagramOptions(true, true, true);
       String sequenceDiagram = apiAnalysisTool.generateSequenceDiagram(allApiInfo, options);
-
+      // String activityDiagram = apiAnalysisTool.generateActivityDiagram(allApiInfo);
+      // String classDiagram = apiAnalysisTool.generateClassDiagram(allApiInfo);
+      var exposedAPIs = results.values().stream()
+          .flatMap(result -> result.getExposedAPIs().stream())
+          .collect(Collectors.toList());
       Map<String, Object> response = new HashMap<>();
-      for (Map.Entry<String, AnalysisResult> entry : results.entrySet()) {
-        String projectName = entry.getKey();
-        AnalysisResult result = entry.getValue();
-        result.setSequenceDiagram(sequenceDiagram);
-        response.put(projectName, createProjectResponse(result));
-      }
-
+      response.put("sequenceDiagram", sequenceDiagram);
+      response.put("exposedAPIs", exposedAPIs);
+      // response.put("liquibaseChanges", liquibaseChanges);
       return ResponseEntity.ok(response);
     } catch (IOException e) {
       return ResponseEntity.badRequest().body("Error analyzing projects: " + e.getMessage());
@@ -51,6 +52,7 @@ public class APIAnalysisController {
     response.put("apiInventory", result.getApiInventory());
     response.put("databaseChanges", result.getChangeSets());
     response.put("sequenceDiagram", result.getSequenceDiagram());
+    response.put("exposedAPIs", result.getExposedAPIs());
     return response;
   }
 }

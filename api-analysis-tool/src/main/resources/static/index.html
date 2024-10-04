@@ -24,35 +24,54 @@
     </form>
     <div v-if="results">
       <h2>Analysis Results</h2>
-      <div v-for="(result, projectName) in results" :key="projectName" class="mb-4">
-        <h3>{{ projectName }}</h3>
-        <div class="mb-3">
-          <label for="diagramType" class="form-label">Select Diagram Type:</label>
-          <select id="diagramType" v-model="result.selectedDiagram" class="form-select">
-            <option value="sequence">Sequence Diagram</option>
-            <option value="activity">Activity Diagram</option>
-            <option value="class">Class Diagram</option>
-          </select>
-        </div>
-        <div v-if="result.selectedDiagram === 'sequence'">
-          <h4>Sequence Diagram</h4>
-          <img :src="getPlantUMLImage(result.sequenceDiagram)" alt="Sequence Diagram" class="img-fluid" />
-        </div>
-        <div v-else-if="result.selectedDiagram === 'activity'">
-          <h4>Activity Diagram</h4>
-          <img :src="result.activityDiagram" alt="Activity Diagram" class="img-fluid" />
-        </div>
-        <div v-else-if="result.selectedDiagram === 'class'">
-          <h4>Class Diagram</h4>
-          <img :src="result.classDiagram" alt="Class Diagram" class="img-fluid" />
-        </div>
-        <h4>API Inventory</h4>
-        <pre>{{ JSON.stringify(result.apiInventory, null, 2) }}</pre>
-        <h4>External Calls</h4>
-        <pre>{{ JSON.stringify(result.externalCalls, null, 2) }}</pre>
-        <h4>Database Changes</h4>
-        <pre>{{ JSON.stringify(result.databaseChanges, null, 2) }}</pre>
+      <h3>{{ projectName }}</h3>
+      <div class="mb-3">
+        <label for="diagramType" class="form-label">Select Diagram Type:</label>
+        <select id="diagramType" v-model="results.selectedDiagram" class="form-select">
+          <option value="sequence">Sequence Diagram</option>
+          <option value="activity">Activity Diagram</option>
+          <option value="class">Class Diagram</option>
+        </select>
       </div>
+      <div v-if="results.selectedDiagram === 'sequence'">
+        <h4>Sequence Diagram</h4>
+        <img :src="getPlantUMLImage(results.sequenceDiagram)" alt="Sequence Diagram" class="img-fluid" />
+      </div>
+      <div v-else-if="results.selectedDiagram === 'activity'">
+        <h4>Activity Diagram</h4>
+        <img :src="results.activityDiagram" alt="Activity Diagram" class="img-fluid" />
+      </div>
+      <div v-else-if="results.electedDiagram === 'class'">
+        <h4>Class Diagram</h4>
+        <img :src="results.classDiagram" alt="Class Diagram" class="img-fluid" />
+      </div>
+      <h4>Exposed APIs</h4>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>HTTP Method</th>
+            <th>Service Name</th>
+            <th>Service Method</th>
+            <th>Return Type</th>
+            <th>Services Dependencies</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="api in results.exposedAPIs" :key="api.path + api.httpMethod">
+            <td>{{ api.path }}</td>
+            <td>{{ api.httpMethod }}</td>
+            <td>{{ api.serviceName }}</td>
+            <td>{{ api.serviceMethod }}</td>
+            <td>{{ api.returnType }}</td>
+            <td>{{ api.servicesDependencies }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <button @click="downloadCSV(results.exposedAPIs)" class="btn btn-secondary mb-3">Download
+        CSV</button>
+      <h4>Database Changes</h4>
+      <pre>{{ JSON.stringify(results.databaseChanges, null, 2) }}</pre>
     </div>
   </div>
   <script>
@@ -75,9 +94,7 @@
           })
             .then(response => {
               this.results = response.data;
-              for (const projectName in this.results) {
-                this.results[projectName].selectedDiagram = 'sequence';
-              }
+              this.results.selectedDiagram = 'sequence';
               this.$nextTick(() => {
                 this.createCharts();
               });
@@ -93,8 +110,8 @@
         },
         createCharts() {
           for (const [projectName, result] of Object.entries(this.results)) {
-            this.createApiChart(projectName, result.apiInventory);
-            this.createExternalCallsChart(projectName, result.externalCalls);
+            this.createApiChart(projectName, results.apiInventory);
+            this.createExternalCallsChart(projectName, results.externalCalls);
           }
         },
         createApiChart(projectName, apiInventory) {
@@ -149,6 +166,33 @@
             grouped[call.targetService] = (grouped[call.targetService] || 0) + 1;
           });
           return grouped;
+        },
+        downloadCSV(data, projectName) {
+          const csvContent = this.convertToCSV(data);
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `APM.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        },
+        convertToCSV(data) {
+          const headers = Object.keys(data[0]);
+          const csvRows = [];
+          csvRows.push(headers.join(','));
+          for (const row of data) {
+            const values = headers.map(header => {
+              const escaped = ('' + row[header]).replace(/"/g, '\\"');
+              return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+          }
+          return csvRows.join('\n');
         }
       }
     });

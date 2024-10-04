@@ -12,6 +12,7 @@ public class APIInfo {
   private List<ExposedAPI> exposedApis;
   private List<ExternalAPI> externalApis;
   private Map<String, String> serviceUrlMap; // For dynamic URL resolution
+  private List<String> servicesDependencies;
 
   public APIInfo(String serviceName, String baseUrl) {
     this.serviceName = serviceName;
@@ -20,6 +21,29 @@ public class APIInfo {
     this.externalApis = new ArrayList<>();
     this.serviceUrlMap = new HashMap<>();
   }
+
+  public List<Map<String, String>> getExposedAPIList() {
+    List<Map<String, String>> apiList = new ArrayList<>();
+    for (ExposedAPI api : exposedApis) {
+      Map<String, String> apiInfo = new HashMap<>();
+      apiInfo.put("path", api.getPath());
+      apiInfo.put("httpMethod", api.getHttpMethod());
+      apiInfo.put("serviceName", api.getServiceName());
+      apiInfo.put("serviceMethod", api.getServiceMethod());
+      apiInfo.put("returnType", api.getReturnType());
+      apiInfo.put("parameters", api.getParameters().toString());
+      List<String> externalApiServices = new ArrayList<>();
+      for (ExternalAPI externalApi : api.getExternalApis()) {
+        externalApiServices.add(externalApi.getServiceName());
+      }
+      apiInfo.put("servicesDependencies", String.join(", ", externalApiServices));
+
+      apiList.add(apiInfo);
+    }
+    return apiList;
+  }
+
+  
 
   public String getBaseUrl() {
     return baseUrl;

@@ -36,9 +36,6 @@ public class APIAnalysisTool {
   @Autowired
   private ProjectScanner projectScanner;
 
-  @Autowired
-  private DatabaseChangelogScanner databaseChangelogScanner;
-
   public Map<String, AnalysisResult> analyzeMultipleProjects(List<MultipartFile> projectFiles) throws IOException {
     Map<String, AnalysisResult> results = new ConcurrentHashMap<>();
     ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
@@ -76,6 +73,7 @@ public class APIAnalysisTool {
 
       APIAnalyzer analyzer = new APIAnalyzer(configProperties, projectName, allClasses);
       APIInfo apiInfo = analyzer.analyzeAPI();
+
       // List<DatabaseChangelogScanner.DatabaseChange> databaseChanges =
       // databaseChangelogScanner
       // .scanChangelog(projectPath.toString());
@@ -83,7 +81,7 @@ public class APIAnalysisTool {
       // List<LiquibaseChangeScanner.ChangeSetInfo> changeSets =
       // scanner.scanJarForDatabaseChanges(projectPath.toString(), configProperties);
       // scanner.printChangeSetSummary(changeSets);
-      return new AnalysisResult(apiInfo);
+      return new AnalysisResult(apiInfo, apiInfo.getExposedAPIList());
     } finally {
       Files.deleteIfExists(projectPath);
       Files.deleteIfExists(tempDir);
