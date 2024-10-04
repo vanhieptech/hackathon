@@ -79,9 +79,9 @@ public class APIAnalysisTool {
       // List<DatabaseChangelogScanner.DatabaseChange> databaseChanges =
       // databaseChangelogScanner
       // .scanChangelog(projectPath.toString());
-      LiquibaseChangeScanner scanner = new LiquibaseChangeScanner();
-      List<LiquibaseChangeScanner.ChangeSetInfo> changeSets = scanner.scanJarForDatabaseChanges(projectPath.toString(), configProperties);
-      scanner.printChangeSetSummary(changeSets);
+//      LiquibaseChangeScanner scanner = new LiquibaseChangeScanner();
+//      List<LiquibaseChangeScanner.ChangeSetInfo> changeSets = scanner.scanJarForDatabaseChanges(projectPath.toString(), configProperties);
+//      scanner.printChangeSetSummary(changeSets);
       return new AnalysisResult(apiInfo);
     } finally {
       Files.deleteIfExists(projectPath);

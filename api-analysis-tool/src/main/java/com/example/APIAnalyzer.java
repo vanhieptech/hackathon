@@ -1,6 +1,7 @@
 package com.example;
 
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
@@ -26,6 +27,7 @@ public class APIAnalyzer {
   private final Set<String> ignoredPaths;
   private final String serviceName;
   private final Map<String, Set<String>> serviceMethodCalls;
+  private final Map<String, String> variableAssignments;
 
   public APIAnalyzer(Map<String, String> configProperties, String projectName, List<ClassNode> allClasses) {
     this.configProperties = configProperties;
@@ -37,6 +39,7 @@ public class APIAnalyzer {
     this.enabledEndpoints = parseCommaSeparatedConfig("api.enabled-endpoints");
     this.ignoredPaths = parseCommaSeparatedConfig("api.ignored-paths");
     this.serviceMethodCalls = new HashMap<>();
+    this.variableAssignments = new HashMap<>();
     buildServiceMethodCallMap();
     logger.info("APIAnalyzer initialized with base path: {}", basePath);
   }
@@ -55,7 +58,7 @@ public class APIAnalyzer {
         logger.info("Extracted {} APIs from class {}", apis.size(), classNode.name);
         for (APIInfo.ExposedAPI api : apis) {
           logger.info("Building dependency tree for API: {}.{}", classNode.name, api.getServiceMethod());
-          Map<String, Set<String>> dependencyTree = buildDependencyTree(classNode, api.getServiceMethod(), 0,
+          Map<String, Set<String>> dependencyTree = buildEnhancedDependencyTree(classNode, api.getServiceMethod(), 0,
               new HashSet<>());
           logger.info("Dependency tree for {}.{} built with {} entries", classNode.name, api.getServiceMethod(),
               dependencyTree.size());
@@ -97,15 +100,139 @@ public class APIAnalyzer {
     return apiInfo;
   }
 
+  private Map<String, Set<String>> buildEnhancedDependencyTree(ClassNode classNode, String methodName, int depth,
+      Set<String> visitedMethods) {
+    logger.debug("Building enhanced dependency tree for {}.{} at depth {}", classNode.name, methodName, depth);
+    Map<String, Set<String>> dependencyTree = new HashMap<>();
+    String fullMethodName = classNode.name + "." + methodName;
+    if (depth > MAX_DEPTH || visitedMethods.contains(fullMethodName)) {
+      logger.warn("Max depth reached or circular dependency detected for method: {}", fullMethodName);
+      return dependencyTree;
+    }
+    visitedMethods.add(fullMethodName);
+
+    MethodNode methodNode = findMethodNode(classNode, methodName);
+    if (methodNode == null) {
+      logger.warn("Method not found: {}", fullMethodName);
+      return dependencyTree;
+    }
+
+    Set<String> methodCalls = new HashSet<>();
+    dependencyTree.put(fullMethodName, methodCalls);
+
+    // Analyze method instructions
+    analyzeMethodInstructions(classNode, methodNode, methodCalls, dependencyTree, depth, visitedMethods);
+
+    // Handle injected services
+    Set<String> injectedServices = detectInjectedServices(classNode);
+    for (String injectedService : injectedServices) {
+      ClassNode serviceNode = findClassNode(injectedService);
+      if (serviceNode != null) {
+        if ((serviceNode.access & Opcodes.ACC_INTERFACE) != 0) {
+          handleServiceInterface(serviceNode, methodName, depth, visitedMethods, dependencyTree);
+        } else {
+          Map<String, Set<String>> serviceDependencyTree = buildEnhancedDependencyTree(serviceNode, methodName,
+              depth + 1,
+              new HashSet<>(visitedMethods));
+          mergeDependencyTrees(dependencyTree, serviceDependencyTree);
+        }
+      }
+    }
+
+    logger.debug("Completed building enhanced dependency tree for {}", fullMethodName);
+    return dependencyTree;
+  }
+
+  private void handleServiceInterface(ClassNode interfaceNode, String methodName, int depth,
+      Set<String> visitedMethods, Map<String, Set<String>> dependencyTree) {
+    logger.info("Handling service interface: {}", interfaceNode.name);
+    List<ClassNode> implementations = findClassesImplementingInterface(interfaceNode.name);
+    for (ClassNode impl : implementations) {
+      logger.debug("Analyzing implementation: {}", impl.name);
+      MethodNode implMethodNode = findMethodNode(impl, methodName);
+      if (implMethodNode != null) {
+        Map<String, Set<String>> implDependencyTree = buildEnhancedDependencyTree(impl, methodName, depth + 1,
+            new HashSet<>(visitedMethods));
+        mergeDependencyTrees(dependencyTree, implDependencyTree);
+      }
+    }
+  }
+
+  private void analyzeMethodInstructions(ClassNode classNode, MethodNode methodNode, Set<String> methodCalls,
+      Map<String, Set<String>> dependencyTree, int depth, Set<String> visitedMethods) {
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        String calledMethod = methodInsn.owner.replace('/', '.') + "." + methodInsn.name;
+        methodCalls.add(calledMethod);
+
+        ClassNode targetClass = findClassNode(methodInsn.owner);
+        if (targetClass != null) {
+          if ((targetClass.access & Opcodes.ACC_INTERFACE) != 0) {
+            handleServiceInterface(targetClass, methodInsn.name, depth, visitedMethods, dependencyTree);
+          } else {
+            MethodNode targetMethod = findMethodNode(targetClass, methodInsn.name, methodInsn.desc);
+            if (targetMethod != null && depth < MAX_DEPTH) {
+              Map<String, Set<String>> subTree = buildEnhancedDependencyTree(targetClass, methodInsn.name, depth + 1,
+                  new HashSet<>(visitedMethods));
+              mergeDependencyTrees(dependencyTree, subTree);
+            }
+          }
+        }
+      } else if (insn instanceof InvokeDynamicInsnNode) {
+        analyzeLambdaExpression(classNode, methodNode, (InvokeDynamicInsnNode) insn, methodCalls,
+            dependencyTree, depth, visitedMethods);
+      }
+    }
+  }
+
+  private void analyzeReactiveChain(ClassNode classNode, MethodNode methodNode,
+      Map<String, Set<String>> dependencyTree) {
+    // Implement logic to analyze reactive chains (e.g., Mono, Flux operations)
+  }
+
   private List<APIInfo.ExternalAPI> extractExternalAPICalls(ClassNode classNode, String serviceMethod) {
+    logger.info("Extracting external API calls for {}.{}", classNode.name, serviceMethod);
     List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
     Map<String, String> classFields = extractClassFields(classNode);
     String baseUrl = extractBaseUrl(classNode, classFields);
 
-    Map<String, Set<String>> dependencyTree = buildDependencyTree(classNode, serviceMethod, 0, new HashSet<>());
-    extractExternalAPICallsFromTree(classNode, serviceMethod, dependencyTree,
-        baseUrl, classFields, externalAPIs);
+    // Build the method call tree
+    Map<String, Set<String>> methodCallTree = new HashMap<>();
+    Set<String> visitedMethods = new HashSet<>();
+    MethodNode methodNode = findMethodNode(classNode, serviceMethod);
+    if (methodNode == null) {
+      logger.warn("Method not found: {}.{}", classNode.name, serviceMethod);
+      return externalAPIs;
+    }
+    buildMethodCallTreeRecursive(classNode, methodNode, methodCallTree, visitedMethods, 0);
+
+    // Analyze the method call tree for external API calls
+    analyzeMethodCallTreeForExternalAPIs(methodCallTree, baseUrl, classFields, externalAPIs);
+
+    logger.info("Extracted {} external API calls for {}.{}", externalAPIs.size(), classNode.name, serviceMethod);
     return externalAPIs;
+  }
+
+  private void analyzeMethodCallTreeForExternalAPIs(Map<String, Set<String>> methodCallTree, String baseUrl,
+      Map<String, String> classFields, List<APIInfo.ExternalAPI> externalAPIs) {
+    for (Map.Entry<String, Set<String>> entry : methodCallTree.entrySet()) {
+      String[] parts = entry.getKey().split("\\.");
+      if (parts.length < 2)
+        continue;
+
+      String className = parts[0];
+      String methodName = parts[1];
+      ClassNode currentClass = findClassNode(className);
+      if (currentClass == null)
+        continue;
+
+      MethodNode currentMethod = findMethodNode(currentClass, methodName);
+      if (currentMethod == null)
+        continue;
+
+      analyzeMethodForExternalCalls(currentClass, currentMethod, baseUrl, classFields, externalAPIs);
+    }
   }
 
   private void extractExternalAPICallsFromTree(ClassNode classNode, String serviceMethod,
@@ -173,37 +300,82 @@ public class APIAnalyzer {
             }
           }
         }
+      } else if (insn instanceof InvokeDynamicInsnNode) {
+        // Handle InvokeDynamic instructions (lambdas)
+        analyzeLambdaExpression(classNode, methodNode, (InvokeDynamicInsnNode) insn, baseUrl, classFields,
+            externalAPIs);
       }
     }
   }
 
   private void analyzeLambdaExpression(ClassNode classNode, MethodNode methodNode, MethodInsnNode methodInsn,
       String baseUrl, Map<String, String> classFields, List<APIInfo.ExternalAPI> externalAPIs) {
-    AbstractInsnNode nextInsn = methodInsn.getNext();
-    while (nextInsn != null) {
-      if (nextInsn instanceof InvokeDynamicInsnNode) {
-        InvokeDynamicInsnNode lambdaInsn = (InvokeDynamicInsnNode) nextInsn;
+    // This method handles the case where a lambda is used within an Optional.map()
+    // or similar method
+    AbstractInsnNode currentInsn = methodInsn.getNext();
+    while (currentInsn != null) {
+      if (currentInsn instanceof InvokeDynamicInsnNode) {
+        InvokeDynamicInsnNode lambdaInsn = (InvokeDynamicInsnNode) currentInsn;
         if (lambdaInsn.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
-          String lambdaMethod = lambdaInsn.name;
-          ClassNode lambdaClass = findClassNode(classNode.name + "$Lambda");
-          if (lambdaClass != null) {
-            MethodNode lambdaMethodNode = findMethodNode(lambdaClass, lambdaMethod);
-            if (lambdaMethodNode != null) {
-              analyzeMethodForExternalCalls(lambdaClass, lambdaMethodNode, baseUrl, classFields, externalAPIs);
-            }
-          } else {
-            // Handle anonymous lambda
-            for (MethodNode method : classNode.methods) {
-              if (method.name.startsWith("lambda$") && method.desc.equals(lambdaInsn.desc)) {
-                analyzeMethodForExternalCalls(classNode, method, baseUrl, classFields, externalAPIs);
-                break;
-              }
-            }
-          }
+          analyzeLambdaBody(classNode, lambdaInsn, baseUrl, classFields, externalAPIs);
         }
         break;
       }
-      nextInsn = nextInsn.getNext();
+      currentInsn = currentInsn.getNext();
+    }
+  }
+
+  private void analyzeLambdaExpression(ClassNode classNode, MethodNode methodNode, InvokeDynamicInsnNode lambdaInsn,
+      String baseUrl, Map<String, String> classFields, List<APIInfo.ExternalAPI> externalAPIs) {
+    if (lambdaInsn.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
+      analyzeLambdaBody(classNode, lambdaInsn, baseUrl, classFields, externalAPIs);
+    }
+  }
+
+  private void analyzeLambdaBody(ClassNode classNode, InvokeDynamicInsnNode lambdaInsn,
+      String baseUrl, Map<String, String> classFields, List<APIInfo.ExternalAPI> externalAPIs) {
+    String lambdaMethod = lambdaInsn.name;
+    ClassNode lambdaClass = findClassNode(classNode.name + "$Lambda");
+    if (lambdaClass != null) {
+      MethodNode lambdaMethodNode = findMethodNode(lambdaClass, lambdaMethod);
+      if (lambdaMethodNode != null) {
+        analyzeMethodForExternalCalls(lambdaClass, lambdaMethodNode, baseUrl, classFields, externalAPIs);
+      }
+    } else {
+      // Handle anonymous lambda
+      for (MethodNode method : classNode.methods) {
+        if (method.name.startsWith("lambda$") && method.desc.equals(lambdaInsn.desc)) {
+          analyzeMethodForExternalCalls(classNode, method, baseUrl, classFields, externalAPIs);
+          break;
+        }
+      }
+    }
+  }
+
+  private void analyzeLambdaExpression(ClassNode classNode, MethodNode methodNode, InvokeDynamicInsnNode lambdaInsn,
+      Set<String> methodCalls, Map<String, Set<String>> dependencyTree,
+      int depth, Set<String> visitedMethods) {
+    if (lambdaInsn.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
+      String lambdaMethod = lambdaInsn.name;
+      ClassNode lambdaClass = findClassNode(classNode.name + "$Lambda");
+      if (lambdaClass != null) {
+        MethodNode lambdaMethodNode = findMethodNode(lambdaClass, lambdaMethod);
+        if (lambdaMethodNode != null) {
+          Map<String, Set<String>> lambdaTree = buildEnhancedDependencyTree(lambdaClass, lambdaMethod, depth + 1,
+              new HashSet<>(visitedMethods));
+          mergeDependencyTrees(dependencyTree, lambdaTree);
+        }
+      } else {
+        // Handle anonymous lambda
+        for (MethodNode method : classNode.methods) {
+          if (method.name.startsWith("lambda$") && method.desc.equals(lambdaInsn.desc)) {
+            Map<String, Set<String>> lambdaTree = buildEnhancedDependencyTree(classNode, method.name, depth + 1,
+                new HashSet<>(visitedMethods));
+            mergeDependencyTrees(dependencyTree, lambdaTree);
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -240,10 +412,21 @@ public class APIAnalyzer {
   }
 
   private void buildMethodCallTree(APIInfo.ExposedAPI exposedAPI, ClassNode classNode, String methodName) {
+    logger.debug("Building method call tree for {}.{}", classNode.name, methodName);
     Set<String> visitedMethods = new HashSet<>();
     Map<String, Set<String>> methodCallTree = new HashMap<>();
-    buildMethodCallTreeRecursive(classNode, methodName, methodCallTree, visitedMethods, 0);
+
+    MethodNode methodNode = findMethodNode(classNode, methodName);
+    if (methodNode == null) {
+      logger.warn("Method not found: {}.{}", classNode.name, methodName);
+      return;
+    }
+
+    buildMethodCallTreeRecursive(classNode, methodNode, methodCallTree, visitedMethods, 0);
     exposedAPI.setMethodCallTree(methodCallTree);
+
+    logger.info("Completed building method call tree for {}.{}. Tree size: {}", classNode.name, methodName,
+        methodCallTree.size());
   }
 
   private Map<String, Set<String>> buildDependencyTree(ClassNode classNode, String methodName, int depth,
@@ -254,7 +437,7 @@ public class APIAnalyzer {
     }
     visitedMethods.add(classNode.name + "." + methodName);
 
-    logger.debug("Building dependency tree for {}.{} at depth {}", classNode.name, methodName, depth);
+    logger.info("Building dependency tree for {}.{} at depth {}", classNode.name, methodName, depth);
     Map<String, Set<String>> dependencyTree = new HashMap<>();
     Set<String> dependencies = new HashSet<>();
     dependencyTree.put(classNode.name + "." + methodName, dependencies);
@@ -276,49 +459,44 @@ public class APIAnalyzer {
     Set<String> injectedServices = detectInjectedServices(classNode);
     analyzeMethodCallsRecursively(classNode, methodNode, injectedServices, dependencies, dependencyTree, depth,
         visitedMethods);
-    // analyzeMethodCalls(classNode, methodNode, injectedServices, dependencies,
-    // dependencyTree, depth, visitedMethods);
+    analyzeMethodCalls(classNode, methodNode, injectedServices, dependencies,
+        dependencyTree, depth, visitedMethods);
 
-    logger.debug("Completed dependency tree for {}.{} at depth {}", classNode.name, methodName, depth);
+    logger.info("Completed dependency tree for {}.{} at depth {}", classNode.name, methodName, depth);
     return dependencyTree;
   }
 
   private void analyzeMethodCallsRecursively(ClassNode classNode, MethodNode methodNode, Set<String> injectedServices,
-      Set<String> dependencies, Map<String, Set<String>> dependencyTree,
+      Set<String> analyzedMethods, Map<String, Set<String>> dependencyTree,
       int depth, Set<String> visitedMethods) {
+    String methodKey = classNode.name + "." + methodNode.name;
+    if (analyzedMethods.contains(methodKey)) {
+      return;
+    }
+    analyzedMethods.add(methodKey);
+
+    Set<String> methodCalls = dependencyTree.computeIfAbsent(methodKey, k -> new HashSet<>());
+
     for (AbstractInsnNode insn : methodNode.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
         String calledMethod = methodInsn.owner.replace('/', '.') + "." + methodInsn.name;
-        dependencies.add(calledMethod);
+        methodCalls.add(calledMethod);
 
         ClassNode targetClass = findClassNode(methodInsn.owner);
         if (targetClass != null) {
-          if (injectedServices.contains(targetClass.name.replace('/', '.'))) {
-            if ((targetClass.access & Opcodes.ACC_INTERFACE) != 0) {
-              List<ClassNode> implementationClasses = findAllInterfaceImplementations(targetClass);
-              for (ClassNode implementationClass : implementationClasses) {
-                Map<String, Set<String>> subTree = buildDependencyTree(implementationClass, methodInsn.name, depth + 1,
-                    new HashSet<>(visitedMethods));
-                mergeDependencyTrees(dependencyTree, subTree);
-              }
-            } else {
-              Map<String, Set<String>> subTree = buildDependencyTree(targetClass, methodInsn.name, depth + 1,
-                  new HashSet<>(visitedMethods));
-              mergeDependencyTrees(dependencyTree, subTree);
-            }
-          } else {
-            MethodNode targetMethod = findMethodNode(targetClass, methodInsn.name, methodInsn.desc);
-            if (targetMethod != null) {
-              analyzeMethodCallsRecursively(targetClass, targetMethod, injectedServices, dependencies, dependencyTree,
-                  depth + 1, new HashSet<>(visitedMethods));
+          MethodNode targetMethod = findMethodNode(targetClass, methodInsn.name, methodInsn.desc);
+          if (targetMethod != null) {
+            if (depth < MAX_DEPTH) {
+              analyzeMethodCallsRecursively(targetClass, targetMethod, injectedServices, analyzedMethods,
+                  dependencyTree, depth + 1, visitedMethods);
             }
           }
         }
-
-        if (isOptionalMapMethod(methodInsn)) {
-          analyzeLambdaExpression(classNode, methodNode, methodInsn, dependencyTree, visitedMethods, depth);
-        }
+      } else if (insn instanceof InvokeDynamicInsnNode) {
+        // Handle lambda expressions
+        analyzeLambdaExpression(classNode, methodNode, (InvokeDynamicInsnNode) insn, injectedServices,
+            analyzedMethods, dependencyTree, depth, visitedMethods);
       }
     }
   }
@@ -329,12 +507,22 @@ public class APIAnalyzer {
         .collect(Collectors.toList());
   }
 
-  private void mergeDependencyTrees(Map<String, Set<String>> target, Map<String, Set<String>> source) {
-    for (Map.Entry<String, Set<String>> entry : source.entrySet()) {
-      target.merge(entry.getKey(), new HashSet<>(entry.getValue()), (existing, newSet) -> {
-        existing.addAll(newSet);
-        return existing;
-      });
+  private void analyzeInterfaceMethod(ClassNode interfaceNode, String methodName,
+      Map<String, Set<String>> dependencyTree) {
+    List<ClassNode> implementations = findAllInterfaceImplementations(interfaceNode);
+    for (ClassNode impl : implementations) {
+      MethodNode methodNode = findMethodNode(impl, methodName);
+      if (methodNode != null) {
+        Set<String> injectedServices = detectInjectedServices(impl);
+        analyzeMethodCallsRecursively(impl, methodNode, injectedServices, new HashSet<>(), dependencyTree, 0,
+            new HashSet<>());
+      }
+    }
+  }
+
+  private void mergeDependencyTrees(Map<String, Set<String>> mainTree, Map<String, Set<String>> subTree) {
+    for (Map.Entry<String, Set<String>> entry : subTree.entrySet()) {
+      mainTree.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).addAll(entry.getValue());
     }
   }
 
@@ -411,16 +599,16 @@ public class APIAnalyzer {
   private Set<String> detectInjectedServices(ClassNode classNode) {
     Set<String> injectedServices = new HashSet<>();
 
-    // Check fields for @Autowired or @Inject annotations
+    // Check fields for @Autowired, @Inject, or @Resource annotations
     for (FieldNode field : classNode.fields) {
-      if (hasAnnotation(field, "Autowired") || hasAnnotation(field, "Inject")) {
+      if (hasAnnotation(field, "Autowired") || hasAnnotation(field, "Inject") || hasAnnotation(field, "Resource")) {
         injectedServices.add(Type.getType(field.desc).getClassName());
       }
     }
 
     // Check constructor for injected services
     for (MethodNode method : classNode.methods) {
-      if (method.name.equals("<init>")) {
+      if (method.name.equals("<init>") && hasAnnotation(method, "Autowired")) {
         Type[] argumentTypes = Type.getArgumentTypes(method.desc);
         for (Type argType : argumentTypes) {
           injectedServices.add(argType.getClassName());
@@ -489,75 +677,104 @@ public class APIAnalyzer {
         methodInsn.name.toLowerCase().contains("delete");
   }
 
-  private void buildMethodCallTreeRecursive(ClassNode classNode, String methodName,
+  private void buildMethodCallTreeRecursive(ClassNode classNode, MethodNode methodNode,
       Map<String, Set<String>> methodCallTree, Set<String> visitedMethods, int depth) {
-    if (depth > MAX_DEPTH || visitedMethods.contains(classNode.name + "." + methodName)) {
+    if (depth > MAX_DEPTH || visitedMethods.contains(classNode.name + "." + methodNode.name + methodNode.desc)) {
+      logger.debug("Max depth reached or circular dependency detected for method: {}.{}", classNode.name,
+          methodNode.name);
       return;
     }
-    visitedMethods.add(classNode.name + "." + methodName);
+    visitedMethods.add(classNode.name + "." + methodNode.name + methodNode.desc);
 
-    MethodNode methodNode = findMethodNode(classNode, methodName);
-    if (methodNode == null) {
-      return;
-    }
-
-    Set<String> methodCalls = new HashSet<>();
-    methodCallTree.put(classNode.name + "." + methodName, methodCalls);
-
-    Set<String> injectedServices = detectInjectedServices(classNode);
+    logger.debug("Analyzing method calls in {}.{}", classNode.name, methodNode.name);
+    Set<String> calledMethods = new HashSet<>();
+    methodCallTree.put(classNode.name + "." + methodNode.name, calledMethods);
 
     for (AbstractInsnNode insn : methodNode.instructions) {
       if (insn instanceof MethodInsnNode) {
         MethodInsnNode methodInsn = (MethodInsnNode) insn;
         String calledMethod = methodInsn.owner.replace('/', '.') + "." + methodInsn.name;
-        methodCalls.add(calledMethod);
+        calledMethods.add(calledMethod);
 
-        if (injectedServices.contains(methodInsn.owner.replace('/', '.'))) {
-          ClassNode targetClass = findClassNode(methodInsn.owner);
-          if (targetClass != null) {
-            buildMethodCallTreeRecursive(targetClass, methodInsn.name, methodCallTree, new HashSet<>(visitedMethods),
-                depth + 1);
+        ClassNode targetClassNode = findClassNode(methodInsn.owner);
+        if (targetClassNode != null) {
+          if ((targetClassNode.access & Opcodes.ACC_INTERFACE) != 0) {
+            // If the target is an interface, find its implementations
+            List<ClassNode> implementations = findClassesImplementingInterface(targetClassNode.name);
+            for (ClassNode implNode : implementations) {
+              MethodNode implMethodNode = findMethodNode(implNode, methodInsn.name, methodInsn.desc);
+              if (implMethodNode != null) {
+                logger.debug("Found implementation of interface method: {}.{}", implNode.name, implMethodNode.name);
+                buildMethodCallTreeRecursive(implNode, implMethodNode, methodCallTree, new HashSet<>(visitedMethods),
+                    depth + 1);
+              }
+            }
+          } else {
+            MethodNode targetMethodNode = findMethodNode(targetClassNode, methodInsn.name, methodInsn.desc);
+            if (targetMethodNode != null) {
+              buildMethodCallTreeRecursive(targetClassNode, targetMethodNode, methodCallTree,
+                  new HashSet<>(visitedMethods), depth + 1);
+            }
           }
+        } else {
+          logger.warn("Could not find class for method call: {}.{}", methodInsn.owner, methodInsn.name);
         }
+      } else if (insn instanceof InvokeDynamicInsnNode) {
+        // Handle lambda expressions
+        InvokeDynamicInsnNode invokeDynamicInsn = (InvokeDynamicInsnNode) insn;
+        if (invokeDynamicInsn.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
+          Handle handle = (Handle) invokeDynamicInsn.bsmArgs[1];
+          String lambdaClass = handle.getOwner().replace('/', '.');
+          String lambdaMethod = handle.getName();
+          calledMethods.add(lambdaClass + "." + lambdaMethod);
 
-        if (isOptionalMapMethod(methodInsn)) {
-          analyzeLambdaExpression(classNode, methodNode, methodInsn, methodCallTree, visitedMethods, depth);
+          ClassNode lambdaClassNode = findClassNode(handle.getOwner());
+          if (lambdaClassNode != null) {
+            MethodNode lambdaMethodNode = findMethodNode(lambdaClassNode, lambdaMethod, handle.getDesc());
+            if (lambdaMethodNode != null) {
+              buildMethodCallTreeRecursive(lambdaClassNode, lambdaMethodNode, methodCallTree,
+                  new HashSet<>(visitedMethods), depth + 1);
+            }
+          }
         }
       }
     }
   }
 
-  private void analyzeLambdaExpression(ClassNode classNode, MethodNode methodNode, MethodInsnNode methodInsn,
-      Map<String, Set<String>> dependencyTree, Set<String> visitedMethods, int depth) {
-    AbstractInsnNode nextInsn = methodInsn.getNext();
-    while (nextInsn != null) {
-      if (nextInsn instanceof InvokeDynamicInsnNode) {
-        InvokeDynamicInsnNode lambdaInsn = (InvokeDynamicInsnNode) nextInsn;
-        if (lambdaInsn.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
-          String lambdaMethod = lambdaInsn.name;
-          ClassNode lambdaClass = findClassNode(classNode.name + "$Lambda");
-          if (lambdaClass != null) {
-            MethodNode lambdaMethodNode = findMethodNode(lambdaClass, lambdaMethod);
-            if (lambdaMethodNode != null) {
-              Set<String> injectedServices = detectInjectedServices(lambdaClass);
-              analyzeMethodCallsRecursively(lambdaClass, lambdaMethodNode, injectedServices, new HashSet<>(),
-                  dependencyTree, depth + 1, new HashSet<>(visitedMethods));
-            }
-          } else {
-            // Handle anonymous lambda
-            for (MethodNode method : classNode.methods) {
-              if (method.name.startsWith("lambda$") && method.desc.equals(lambdaInsn.desc)) {
-                Set<String> injectedServices = detectInjectedServices(classNode);
-                analyzeMethodCallsRecursively(classNode, method, injectedServices, new HashSet<>(), dependencyTree,
-                    depth + 1, new HashSet<>(visitedMethods));
-                break;
-              }
-            }
+  private void analyzeLambdaExpression(ClassNode classNode, MethodNode methodNode, InvokeDynamicInsnNode lambdaInsn,
+      Set<String> injectedServices, Set<String> analyzedMethods,
+      Map<String, Set<String>> dependencyTree, int depth, Set<String> visitedMethods) {
+    if (lambdaInsn.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
+      String lambdaMethod = lambdaInsn.name;
+      ClassNode lambdaClass = findClassNode(classNode.name + "$Lambda");
+      if (lambdaClass != null) {
+        MethodNode lambdaMethodNode = findMethodNode(lambdaClass, lambdaMethod);
+        if (lambdaMethodNode != null) {
+          analyzeMethodCallsRecursively(lambdaClass, lambdaMethodNode, injectedServices, analyzedMethods,
+              dependencyTree, depth + 1, visitedMethods);
+        }
+      } else {
+        // Handle anonymous lambda
+        for (MethodNode method : classNode.methods) {
+          if (method.name.startsWith("lambda$") && method.desc.equals(lambdaInsn.desc)) {
+            analyzeMethodCallsRecursively(classNode, method, injectedServices, analyzedMethods,
+                dependencyTree, depth + 1, visitedMethods);
+            break;
           }
         }
-        break;
       }
-      nextInsn = nextInsn.getNext();
+    }
+  }
+
+  private void analyzeAnonymousLambdaBody(ClassNode classNode, InvokeDynamicInsnNode lambdaInsn,
+      Map<String, Set<String>> dependencyTree, Set<String> visitedMethods, int depth) {
+    // Extract lambda body instructions
+    Handle handle = (Handle) lambdaInsn.bsmArgs[1];
+    MethodNode lambdaMethod = findMethodNode(classNode, handle.getName(), handle.getDesc());
+    if (lambdaMethod != null) {
+      Set<String> injectedServices = detectInjectedServices(classNode);
+      analyzeMethodCallsRecursively(classNode, lambdaMethod, injectedServices, new HashSet<>(), dependencyTree,
+          depth + 1, new HashSet<>(visitedMethods));
     }
   }
 
@@ -596,6 +813,53 @@ public class APIAnalyzer {
 
   private boolean isApiClass(ClassNode classNode, MethodNode methodNode) {
     return isApiClass(classNode) || isValidApiMethod(methodNode) || isGeneratedApiMethod(methodNode);
+  }
+
+  private boolean isExternalAPICall(MethodInsnNode methodInsn) {
+    return isHttpClientMethod(methodInsn) ||
+        isMessageBrokerMethod(methodInsn) ||
+        isBackbaseAPICall(methodInsn) ||
+        isSQLQuery(methodInsn);
+  }
+
+  private boolean isBackbaseAPICall(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("com/backbase/") &&
+        (methodInsn.name.equals("getCapabilities") ||
+            methodInsn.name.equals("getEntitlements") ||
+            methodInsn.name.equals("getProductSummary"));
+  }
+
+  private boolean isSQLQuery(MethodInsnNode methodInsn) {
+    return (methodInsn.owner.contains("java/sql/") ||
+        methodInsn.owner.contains("javax/persistence/") ||
+        methodInsn.owner.contains("org/springframework/jdbc/") ||
+        methodInsn.owner.contains("org/hibernate/")) &&
+        (methodInsn.name.equals("executeQuery") ||
+            methodInsn.name.equals("createQuery") ||
+            methodInsn.name.equals("createNativeQuery") ||
+            methodInsn.name.equals("query"));
+  }
+
+  private void trackVariableAssignment(VarInsnNode varInsn) {
+    if (varInsn.getOpcode() == Opcodes.ASTORE) {
+      String variableName = "var_" + varInsn.var;
+      AbstractInsnNode prevInsn = varInsn.getPrevious();
+      if (prevInsn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) prevInsn;
+        variableAssignments.put(variableName, methodInsn.owner + "." + methodInsn.name);
+      }
+    }
+  }
+
+  private void trackFieldAssignment(FieldInsnNode fieldInsn) {
+    if (fieldInsn.getOpcode() == Opcodes.PUTFIELD) {
+      String fieldName = fieldInsn.owner + "." + fieldInsn.name;
+      AbstractInsnNode prevInsn = fieldInsn.getPrevious();
+      if (prevInsn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) prevInsn;
+        variableAssignments.put(fieldName, methodInsn.owner + "." + methodInsn.name);
+      }
+    }
   }
 
   private boolean isApiClass(ClassNode classNode) {
@@ -723,17 +987,17 @@ public class APIAnalyzer {
       return false;
     }
 
-    // // Check if serviceMethod is not null or empty
-    // if (serviceMethod == null || serviceMethod.isEmpty()) {
-    // logger.info("Invalid API: Service method is null or empty");
-    // return false;
-    // }
+    // Check if serviceMethod is not null or empty
+    if (serviceMethod == null || serviceMethod.isEmpty()) {
+      logger.info("Invalid API: Service method is null or empty");
+      return false;
+    }
 
-    // // Check if controllerClassName is not null or empty
-    // if (controllerClassName == null || controllerClassName.isEmpty()) {
-    // logger.info("Invalid API: Controller class name is null or empty");
-    // return false;
-    // }
+    // Check if controllerClassName is not null or empty
+    if (controllerClassName == null || controllerClassName.isEmpty()) {
+      logger.info("Invalid API: Controller class name is null or empty");
+      return false;
+    }
 
     // Check if serviceClassName is not null or empty
     if (serviceClassName == null || serviceClassName.isEmpty()) {
@@ -754,36 +1018,131 @@ public class APIAnalyzer {
   }
 
   private String extractServiceClassName(ClassNode classNode) {
-    // First, try to find a field with @Autowired or @Inject annotation
-    for (FieldNode field : classNode.fields) {
-      if (hasAnnotation(field, "Autowired") || hasAnnotation(field, "Inject")) {
-        return Type.getType(field.desc).getClassName();
-      }
+    logger.debug("Extracting service class name for {}", classNode.name);
+
+    // Check for constructor injection
+    String constructorInjectedService = findConstructorInjectedService(classNode);
+    if (constructorInjectedService != null) {
+      logger.info("Found constructor-injected service: {} for class {}", constructorInjectedService, classNode.name);
+      return constructorInjectedService;
+    }
+
+    // Check for field injection
+    String fieldInjectedService = findFieldInjectedService(classNode);
+    if (fieldInjectedService != null) {
+      logger.info("Found field-injected service: {} for class {}", fieldInjectedService, classNode.name);
+      return fieldInjectedService;
+    }
+
+    // Check for static initialization
+    String staticInitializedService = findStaticInitializedService(classNode);
+    if (staticInitializedService != null) {
+      logger.info("Found static-initialized service: {} for class {}", staticInitializedService, classNode.name);
+      return staticInitializedService;
     }
 
     // If not found, try to infer from the class name
-    String className = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
-    if (className.endsWith("Controller")) {
-      String serviceName = className.substring(0, className.length() - "Controller".length()) + "Service";
-
-      // Check if the inferred service class exists
-      if (findClassNode(serviceName) != null) {
-        return serviceName;
-      }
+    String inferredService = inferServiceFromClassName(classNode);
+    if (inferredService != null) {
+      logger.info("Inferred service: {} for class {}", inferredService, classNode.name);
+      return inferredService;
     }
 
     // If still not found, search for a class with "Service" suffix in the same
     // package
-    String packageName = classNode.name.substring(0, classNode.name.lastIndexOf('/') + 1);
-    for (ClassNode cn : allClasses) {
-      if (cn.name.startsWith(packageName) && cn.name.endsWith("Service")) {
-        return cn.name.replace('/', '.');
-      }
+    String packageService = findServiceInSamePackage(classNode);
+    if (packageService != null) {
+      logger.info("Found service in the same package: {} for class {}", packageService, classNode.name);
+      return packageService;
     }
 
     // If no service class is found, return the original class name
     logger.warn("No service class found for {}. Using the class itself.", classNode.name);
     return classNode.name.replace('/', '.');
+  }
+
+  private String findFieldInjectedService(ClassNode classNode) {
+    for (FieldNode field : classNode.fields) {
+      if (hasAnnotation(field, "Autowired") || hasAnnotation(field, "Inject") || hasAnnotation(field, "Resource")) {
+        String serviceName = Type.getType(field.desc).getClassName();
+        logger.debug("Found field-injected service: {} in class {}", serviceName, classNode.name);
+        return serviceName;
+      }
+    }
+    // If no annotated field found, check for fields ending with "Service"
+    for (FieldNode field : classNode.fields) {
+      String fieldType = Type.getType(field.desc).getClassName();
+      if (fieldType.endsWith("Service")) {
+        logger.debug("Found service field: {} in class {}", fieldType, classNode.name);
+        return fieldType;
+      }
+    }
+    return null;
+  }
+
+  private String findConstructorInjectedService(ClassNode classNode) {
+    for (MethodNode method : classNode.methods) {
+      if (method.name.equals("<init>")) {
+        Type[] argumentTypes = Type.getArgumentTypes(method.desc);
+        if (argumentTypes.length > 0) {
+          // Check if the first parameter is a service (ends with "Service")
+          String serviceName = argumentTypes[0].getClassName();
+          if (serviceName.endsWith("Service")) {
+            logger.debug("Found constructor-injected service: {} in class {}", serviceName, classNode.name);
+            return serviceName;
+          }
+        }
+        // If no service found in the first constructor, check others
+        for (Type argType : argumentTypes) {
+          String className = argType.getClassName();
+          if (className.endsWith("Service")) {
+            logger.debug("Found constructor-injected service: {} in class {}", className, classNode.name);
+            return className;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private String findStaticInitializedService(ClassNode classNode) {
+    for (MethodNode method : classNode.methods) {
+      if (method.name.equals("<clinit>")) {
+        for (AbstractInsnNode insn : method.instructions) {
+          if (insn instanceof FieldInsnNode && insn.getOpcode() == Opcodes.PUTSTATIC) {
+            FieldInsnNode fieldInsn = (FieldInsnNode) insn;
+            String serviceName = Type.getType(fieldInsn.desc).getClassName();
+            logger.debug("Found static-initialized service: {} in class {}", serviceName, classNode.name);
+            return serviceName;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private String inferServiceFromClassName(ClassNode classNode) {
+    String className = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
+    if (className.endsWith("Controller")) {
+      String serviceName = className.substring(0, className.length() - "Controller".length()) + "Service";
+      ClassNode serviceNode = findClassNode(serviceName);
+      if (serviceNode != null) {
+        logger.debug("Inferred service class: {} for controller {}", serviceName, classNode.name);
+        return serviceNode.name.replace('/', '.');
+      }
+    }
+    return null;
+  }
+
+  private String findServiceInSamePackage(ClassNode classNode) {
+    String packageName = classNode.name.substring(0, classNode.name.lastIndexOf('/') + 1);
+    for (ClassNode cn : allClasses) {
+      if (cn.name.startsWith(packageName) && cn.name.endsWith("Service")) {
+        logger.debug("Found service in the same package: {} for class {}", cn.name, classNode.name);
+        return cn.name.replace('/', '.');
+      }
+    }
+    return null;
   }
 
   private boolean hasAnnotation(ClassNode classNode, String annotationName) {
@@ -991,9 +1350,27 @@ public class APIAnalyzer {
   }
 
   private boolean isMessageBrokerMethod(MethodInsnNode methodInsn) {
-    return methodInsn.owner.contains("KafkaTemplate") ||
-        methodInsn.owner.contains("RabbitTemplate") ||
-        methodInsn.owner.contains("JmsTemplate");
+    return isKafkaMethod(methodInsn) ||
+        isRabbitMQMethod(methodInsn) ||
+        isJmsMethod(methodInsn);
+  }
+
+  private boolean isKafkaMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("KafkaTemplate") &&
+        (methodInsn.name.equals("send") ||
+            methodInsn.name.equals("sendDefault"));
+  }
+
+  private boolean isRabbitMQMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("RabbitTemplate") &&
+        (methodInsn.name.equals("convertAndSend") ||
+            methodInsn.name.equals("send"));
+  }
+
+  private boolean isJmsMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("JmsTemplate") &&
+        (methodInsn.name.equals("convertAndSend") ||
+            methodInsn.name.equals("send"));
   }
 
   private String extractBrokerType(MethodInsnNode methodInsn) {
@@ -1018,102 +1395,6 @@ public class APIAnalyzer {
     return "Unknown";
   }
 
-  private List<APIInfo.ExternalAPI> extractFeignClientCalls(String controllerClassName, String serviceMethod,
-      List<ClassNode> allClasses) {
-    List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
-    ClassNode controllerClass = findClassNode(controllerClassName, allClasses);
-    if (controllerClass == null)
-      return externalAPIs;
-
-    MethodNode methodNode = findMethodNode(controllerClass, serviceMethod);
-    if (methodNode == null)
-      return externalAPIs;
-
-    for (AbstractInsnNode insn : methodNode.instructions) {
-      if (insn instanceof MethodInsnNode) {
-        MethodInsnNode methodInsn = (MethodInsnNode) insn;
-        ClassNode feignClientClass = findFeignClientClass(methodInsn.owner, allClasses);
-        if (feignClientClass != null) {
-          String baseUrl = extractFeignClientBaseUrl(feignClientClass);
-          MethodNode feignMethod = findMethodNode(feignClientClass, methodInsn.name, methodInsn.desc);
-          if (feignMethod != null) {
-            String httpMethod = extractFeignMethodHttpMethod(feignMethod);
-            String path = extractFeignMethodPath(feignMethod);
-            String fullUrl = baseUrl + path;
-            externalAPIs.add(
-                new APIInfo.ExternalAPI(serviceMethod, path, httpMethod, false, fullUrl, "", ""));
-          }
-        }
-      }
-    }
-    return externalAPIs;
-  }
-
-  private String extractFeignMethodPath(MethodNode feignMethod) {
-    if (feignMethod.visibleAnnotations != null) {
-      for (AnnotationNode an : feignMethod.visibleAnnotations) {
-        if (an.desc.contains("RequestMapping") ||
-            an.desc.contains("GetMapping") ||
-            an.desc.contains("PostMapping") ||
-            an.desc.contains("PutMapping") ||
-            an.desc.contains("DeleteMapping") ||
-            an.desc.contains("PatchMapping")) {
-          return extractAnnotationValue(an, "value");
-        }
-      }
-    }
-    return "";
-  }
-
-  private String extractFeignMethodHttpMethod(MethodNode feignMethod) {
-    if (feignMethod.visibleAnnotations != null) {
-      for (AnnotationNode an : feignMethod.visibleAnnotations) {
-        if (an.desc.contains("GetMapping"))
-          return "GET";
-        if (an.desc.contains("PostMapping"))
-          return "POST";
-        if (an.desc.contains("PutMapping"))
-          return "PUT";
-        if (an.desc.contains("DeleteMapping"))
-          return "DELETE";
-        if (an.desc.contains("PatchMapping"))
-          return "PATCH";
-        if (an.desc.contains("RequestMapping")) {
-          String method = extractAnnotationValue(an, "method");
-          if (method != null) {
-            return method.toUpperCase();
-          }
-        }
-      }
-    }
-    return "UNKNOWN";
-  }
-
-  private String extractFeignClientBaseUrl(ClassNode feignClientClass) {
-    if (feignClientClass.visibleAnnotations != null) {
-      for (AnnotationNode an : feignClientClass.visibleAnnotations) {
-        if (an.desc.contains("FeignClient")) {
-          String url = extractAnnotationValue(an, "url");
-          if (url != null) {
-            return url;
-          }
-          String name = extractAnnotationValue(an, "name");
-          if (name != null) {
-            return "${" + name + "}";
-          }
-        }
-      }
-    }
-    return "";
-  }
-
-  private ClassNode findFeignClientClass(String className, List<ClassNode> allClasses) {
-    return allClasses.stream()
-        .filter(cn -> cn.name.equals(className) && hasFeignClientAnnotation(cn))
-        .findFirst()
-        .orElse(null);
-  }
-
   private String extractTargetService(MethodInsnNode methodInsn) {
     ClassNode targetClass = findClassNode(methodInsn.owner);
     if (targetClass != null && targetClass.visibleAnnotations != null) {
@@ -1124,108 +1405,6 @@ public class APIAnalyzer {
       }
     }
     return "UnknownService";
-  }
-
-  private String extractHttpMethodFromHttpClientCall(MethodInsnNode methodInsn) {
-    String methodName = methodInsn.name.toLowerCase();
-    if (methodName.contains("get"))
-      return "GET";
-    if (methodName.contains("post"))
-      return "POST";
-    if (methodName.contains("put"))
-      return "PUT";
-    if (methodName.contains("delete"))
-      return "DELETE";
-    if (methodName.contains("patch"))
-      return "PATCH";
-    if (methodName.equals("exchange") || methodName.equals("send") || methodName.equals("sendAsync")) {
-      // For these methods, we need to check the method arguments to determine the
-      // HTTP method
-      return extractHttpMethodFromArguments(methodInsn);
-    }
-    return "UNKNOWN";
-  }
-
-  private String extractHttpMethodFromArguments(MethodInsnNode methodInsn) {
-    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
-      if (insn instanceof FieldInsnNode) {
-        FieldInsnNode fieldInsn = (FieldInsnNode) insn;
-        if (fieldInsn.owner.contains("HttpMethod")) {
-          return fieldInsn.name;
-        }
-      }
-    }
-    return "UNKNOWN";
-  }
-
-  private String extractUrlFromHttpClientCall(MethodInsnNode methodInsn, Map<String, String> configProperties) {
-    String url = null;
-    if (methodInsn.owner.contains("RestTemplate")) {
-      url = extractUrlFromRestTemplateCall(methodInsn);
-    } else if (methodInsn.owner.contains("WebClient")) {
-      url = extractUrlFromWebClientCall(methodInsn);
-    } else if (methodInsn.owner.contains("HttpClient")) {
-      url = extractUrlFromHttpClientCall(methodInsn);
-    }
-
-    if (url != null) {
-      // Resolve placeholders using configProperties
-      for (Map.Entry<String, String> entry : configProperties.entrySet()) {
-        url = url.replace("${" + entry.getKey() + "}", entry.getValue());
-      }
-    }
-    return url;
-  }
-
-  private String extractUrlFromRestTemplateCall(MethodInsnNode methodInsn) {
-    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
-      if (insn instanceof LdcInsnNode) {
-        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
-        if (ldcInsn.cst instanceof String) {
-          String potentialUrl = (String) ldcInsn.cst;
-          if (potentialUrl.startsWith("http://") || potentialUrl.startsWith("https://")) {
-            return potentialUrl;
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  private String extractUrlFromWebClientCall(MethodInsnNode methodInsn) {
-    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
-      if (insn instanceof MethodInsnNode) {
-        MethodInsnNode prevMethodInsn = (MethodInsnNode) insn;
-        if (prevMethodInsn.name.equals("uri")) {
-          return extractStringArgument(prevMethodInsn);
-        }
-      }
-    }
-    return null;
-  }
-
-  private String extractUrlFromHttpClientCall(MethodInsnNode methodInsn) {
-    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
-      if (insn instanceof MethodInsnNode) {
-        MethodInsnNode prevMethodInsn = (MethodInsnNode) insn;
-        if (prevMethodInsn.name.equals("create")) {
-          return extractStringArgument(prevMethodInsn);
-        }
-      }
-    }
-    return null;
-  }
-
-  private String extractStringArgument(MethodInsnNode methodInsn) {
-    for (AbstractInsnNode insn = methodInsn.getPrevious(); insn != null; insn = insn.getPrevious()) {
-      if (insn instanceof LdcInsnNode) {
-        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
-        if (ldcInsn.cst instanceof String) {
-          return (String) ldcInsn.cst;
-        }
-      }
-    }
-    return null;
   }
 
   private ClassNode findClassNode(String controllerClassName, List<ClassNode> allClasses) {
@@ -1250,91 +1429,19 @@ public class APIAnalyzer {
   }
 
   private List<ClassNode> findClassesImplementingInterface(String interfaceName) {
-    return allClasses.stream()
-        .filter(classNode -> classNode.interfaces.contains(interfaceName))
-        .collect(Collectors.toList());
-  }
-
-  private void extractExternalAPICallsRecursive(ClassNode classNode, String methodName, String baseUrl,
-      Map<String, String> classFields, List<APIInfo.ExternalAPI> externalAPIs,
-      Set<String> visitedMethods, int depth) {
-    if (depth > MAX_DEPTH || visitedMethods.contains(classNode.name + "." + methodName)) {
-      return;
-    }
-    visitedMethods.add(classNode.name + "." + methodName);
-
-    MethodNode methodNode = findMethodNode(classNode, methodName);
-    if (methodNode == null) {
-      // Check if it's an interface method
-      for (String interfaceName : classNode.interfaces) {
-        ClassNode interfaceNode = findClassNode(interfaceName);
-        if (interfaceNode != null) {
-          methodNode = findMethodNode(interfaceNode, methodName);
-          if (methodNode != null) {
-            break;
-          }
-        }
-      }
-      if (methodNode == null)
-        return;
-    }
-
-    for (AbstractInsnNode insn : methodNode.instructions) {
-      if (insn instanceof MethodInsnNode) {
-        MethodInsnNode methodInsn = (MethodInsnNode) insn;
-        if (isHttpCMethod(methodInsn)) {
-          APIInfo.ExternalAPI externalAPI = extractExternalAPIInfo(classNode, methodNode, methodInsn, baseUrl,
-              classFields);
-          externalAPIs.add(externalAPI);
-        } else if (isOptionalMapMethod(methodInsn)) {
-          analyzeLambdaExpression(classNode, methodNode, methodInsn, baseUrl, classFields, externalAPIs, visitedMethods,
-              depth);
-        } else {
-          ClassNode targetClass = findClassNode(methodInsn.owner);
-          if (targetClass != null) {
-            extractExternalAPICallsRecursive(targetClass, methodInsn.name, baseUrl, classFields, externalAPIs,
-                visitedMethods, depth + 1);
-          }
-        }
+    logger.debug("Finding classes implementing interface: {}", interfaceName);
+    List<ClassNode> implementingClasses = new ArrayList<>();
+    for (ClassNode classNode : allClasses) {
+      if (classNode.interfaces.contains(interfaceName)) {
+        implementingClasses.add(classNode);
+        logger.debug("Found implementing class: {}", classNode.name);
       }
     }
+    return implementingClasses;
   }
 
   private boolean isOptionalMapMethod(MethodInsnNode methodInsn) {
     return methodInsn.owner.equals("java/util/Optional") && methodInsn.name.equals("map");
-  }
-
-  private void analyzeLambdaExpression(ClassNode classNode, MethodNode methodNode, MethodInsnNode methodInsn,
-      String baseUrl, Map<String, String> classFields, List<APIInfo.ExternalAPI> externalAPIs,
-      Set<String> visitedMethods, int depth) {
-    AbstractInsnNode nextInsn = methodInsn.getNext();
-    while (nextInsn != null) {
-      if (nextInsn instanceof InvokeDynamicInsnNode) {
-        InvokeDynamicInsnNode lambdaInsn = (InvokeDynamicInsnNode) nextInsn;
-        if (lambdaInsn.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) {
-          String lambdaMethod = lambdaInsn.name;
-          ClassNode lambdaClass = findClassNode(classNode.name + "$Lambda");
-          if (lambdaClass != null) {
-            MethodNode lambdaMethodNode = findMethodNode(lambdaClass, lambdaMethod);
-            if (lambdaMethodNode != null) {
-              extractExternalAPICallsRecursive(lambdaClass, lambdaMethod, baseUrl, classFields, externalAPIs,
-                  new HashSet<>(visitedMethods), depth + 1);
-            }
-          } else {
-            // Handle anonymous lambda
-            for (MethodNode method : classNode.methods) {
-              if (method.name.startsWith("lambda$") && method.desc.equals(lambdaInsn.desc)) {
-                extractExternalAPICallsRecursive(classNode, method.name, baseUrl, classFields, externalAPIs,
-                    new HashSet<>(visitedMethods), depth + 1);
-                break;
-              }
-            }
-          }
-        }
-        break;
-      }
-      nextInsn = nextInsn.getNext();
-    }
   }
 
   private Map<String, String> extractClassFields(ClassNode classNode) {
@@ -1383,6 +1490,17 @@ public class APIAnalyzer {
   }
 
   private boolean isHttpClientMethod(MethodInsnNode methodInsn) {
+    return isRestTemplateMethod(methodInsn) ||
+        isWebClientMethod(methodInsn) ||
+        isFeignClientMethod(methodInsn) ||
+        isHttpURLConnectionMethod(methodInsn) ||
+        isOkHttpClientMethod(methodInsn) ||
+        isApacheHttpClientMethod(methodInsn) ||
+        isJerseyClientMethod(methodInsn) ||
+        isRetrofitMethod(methodInsn);
+  }
+
+  private boolean isHttpURLConnectionMethod(MethodInsnNode methodInsn) {
     return methodInsn.owner.contains("java/net/HttpURLConnection") &&
         (methodInsn.name.equals("setRequestMethod") ||
             methodInsn.name.equals("getOutputStream") ||
@@ -1400,6 +1518,21 @@ public class APIAnalyzer {
         methodInsn.owner.contains("org/apache/http/impl/client/CloseableHttpClient")) &&
         (methodInsn.name.equals("execute") ||
             methodInsn.name.equals("doExecute"));
+  }
+
+  private boolean isJerseyClientMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("javax/ws/rs/client/Client") &&
+        (methodInsn.name.equals("target") ||
+            methodInsn.name.equals("request") ||
+            methodInsn.name.equals("get") ||
+            methodInsn.name.equals("post") ||
+            methodInsn.name.equals("put") ||
+            methodInsn.name.equals("delete"));
+  }
+
+  private boolean isRetrofitMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("retrofit2/Retrofit") &&
+        methodInsn.name.equals("create");
   }
 
   private boolean hasFeignClientAnnotation(ClassNode classNode) {
