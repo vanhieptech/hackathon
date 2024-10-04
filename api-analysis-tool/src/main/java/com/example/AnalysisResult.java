@@ -10,6 +10,15 @@ import liquibase.changelog.ChangeSet;
 public class AnalysisResult {
   private APIInfo apiInventory;
   private List<ChangeSet> changeSets;
+  private String sequenceDiagram;
+
+  public String getSequenceDiagram() {
+    return sequenceDiagram;
+  }
+
+  public void setSequenceDiagram(String sequenceDiagram) {
+    this.sequenceDiagram = sequenceDiagram;
+  }
 
   public AnalysisResult(APIInfo apiInventory) {
     this.apiInventory = apiInventory;

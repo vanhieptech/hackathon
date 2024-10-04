@@ -6,6 +6,9 @@ import com.example.repository.BookRepository;
 import com.example.dto.AuthorDTO;
 import com.example.service.AuthorServiceClient;
 import com.example.service.BookService;
+import com.example.service.ExternalServiceClient;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -14,6 +17,9 @@ import java.util.Optional;
 
 @Service
 public class BookServiceImpl implements BookService {
+  @Autowired
+  private ExternalServiceClient externalServiceClient;
+
   private final BookRepository bookRepository;
   private final AuthorServiceClient authorServiceClient;
 
@@ -52,6 +58,7 @@ public class BookServiceImpl implements BookService {
   @Override
   public void deleteBook(Long id) {
     bookRepository.deleteById(id);
+    externalServiceClient.produceKafkaMessage("book-deleted", "Book with id " + id + " has been deleted");
   }
 
   @Override

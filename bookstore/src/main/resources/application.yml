@@ -44,6 +44,23 @@ spring:
     host: redis.example.com
     port: 6379
 
+# Kafka Consumer properties
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: my-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# Kafka Producer properties
+  kafka:
+    producer:
+      bootstrap-servers: localhost:9092
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+
 logging:
   level:
     root: INFO
@@ -80,3 +97,8 @@ azure:
 author:
   service:
     base-url: http://vh-author:8081
+
+kafka:
+  bootstrap-servers: localhost:9092
+  topic: my-topic
+  group-id: my-group

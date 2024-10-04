@@ -2,6 +2,7 @@ package com.example;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,20 +15,13 @@ import com.example.model.APIInfo;
 
 public class SequenceDiagramGenerator {
   private static final Logger logger = LoggerFactory.getLogger(SequenceDiagramGenerator.class);
-  private final Map<String, String> configProperties;
-  private final Map<String, Set<String>> classImports;
-  private final boolean useNamingConventions;
   private final List<ImplementationMatcher> customRules;
 
   public interface ImplementationMatcher {
     boolean matches(ClassNode classNode, String interfaceName);
   }
 
-  public SequenceDiagramGenerator(Map<String, String> configProperties, Map<String, Set<String>> classImports,
-      List<ClassNode> allClasses) {
-    this.configProperties = configProperties;
-    this.classImports = classImports;
-    this.useNamingConventions = Boolean.parseBoolean(configProperties.getOrDefault("use.naming.conventions", "true"));
+  public SequenceDiagramGenerator() {
     this.customRules = initializeCustomRules();
   }
 
@@ -53,85 +47,98 @@ public class SequenceDiagramGenerator {
   }
 
   private void appendParticipants(StringBuilder sb, List<APIInfo> apiInfoList) {
-    Map<String, List<APIInfo>> systemGroups = new HashMap<>();
+    sb.append("participant \"Client\"\n");
+    Map<String, Set<String>> systemGroups = new HashMap<>();
 
     for (APIInfo apiInfo : apiInfoList) {
-      String systemName = extractSystemName(apiInfo.getServiceName());
-      systemGroups.computeIfAbsent(systemName, k -> new ArrayList<>()).add(apiInfo);
+      addServiceToSystemGroups(systemGroups, apiInfo.getServiceName());
+
+      for (APIInfo.ExposedAPI exposedAPI : apiInfo.getExposedApis()) {
+        for (APIInfo.ExternalAPI externalAPI : exposedAPI.getExternalApis()) {
+          addServiceToSystemGroups(systemGroups, externalAPI.getServiceName());
+        }
+      }
     }
 
-    for (Map.Entry<String, List<APIInfo>> entry : systemGroups.entrySet()) {
+    for (Map.Entry<String, Set<String>> entry : systemGroups.entrySet()) {
       String systemName = entry.getKey();
-      List<APIInfo> services = entry.getValue();
+      Set<String> services = entry.getValue();
 
       sb.append("box \"").append(systemName.toUpperCase()).append(" System\"\n");
-      for (APIInfo apiInfo : services) {
-        String serviceName = sanitizeParticipantName(apiInfo.getServiceName());
-        sb.append("  participant \"").append(apiInfo.getServiceName()).append("\" as ").append(serviceName)
-            .append("\n");
+      for (String serviceName : services) {
+        sb.append("  participant \"").append(serviceName).append("\"\n");
       }
-      sb.append("end box\n\n");
+      sb.append("end box\n");
     }
+    sb.append("\n");
+  }
+
+  private void addServiceToSystemGroups(Map<String, Set<String>> systemGroups, String serviceName) {
+    String systemName = extractSystemName(serviceName);
+    systemGroups.computeIfAbsent(systemName, k -> new HashSet<>()).add(serviceName);
+  }
+
+  private String extractSystemName(String serviceName) {
+    String[] parts = serviceName.split("-");
+    return parts.length > 0 ? parts[0] : serviceName;
   }
 
   private void generateSequenceForService(StringBuilder sb, APIInfo apiInfo, List<APIInfo> allApiInfo,
       DiagramOptions options) {
     String sanitizedServiceName = sanitizeParticipantName(apiInfo.getServiceName());
-    String systemName = extractSystemName(apiInfo.getServiceName());
 
     for (APIInfo.ExposedAPI exposedAPI : apiInfo.getExposedApis()) {
-      sb.append(systemName).append(" -> ").append(sanitizedServiceName).append(": ")
+      sb.append("Client -> ").append(sanitizedServiceName).append(": ")
           .append(exposedAPI.getHttpMethod()).append(" ")
           .append(exposedAPI.getPath()).append("\n");
       sb.append("activate ").append(sanitizedServiceName).append("\n");
 
       generateExternalAPICalls(sb, exposedAPI, allApiInfo, options);
 
-      sb.append(sanitizedServiceName).append(" --> ").append(systemName).append(": Response\n");
+      sb.append(sanitizedServiceName).append(" --> Client: Response\n");
       sb.append("deactivate ").append(sanitizedServiceName).append("\n\n");
     }
   }
 
   private void generateExternalAPICalls(StringBuilder sb, APIInfo.ExposedAPI exposedAPI, List<APIInfo> allApiInfo,
       DiagramOptions options) {
-    String sourceSystem = extractSystemName(exposedAPI.getServiceName());
+    String sanitizedSourceService = sanitizeParticipantName(exposedAPI.getServiceName());
+
     for (APIInfo.ExternalAPI externalAPI : exposedAPI.getExternalApis()) {
-      String targetService = findTargetService(externalAPI.getPath(), allApiInfo);
-      String targetSystem = extractSystemName(targetService);
+      String targetService = externalAPI.getServiceName();
       String sanitizedTargetService = sanitizeParticipantName(targetService);
 
+      if (sanitizedSourceService.equals(sanitizedTargetService)) {
+        continue; // Skip self-calls
+      }
+
       String arrow = externalAPI.isAsync() ? "->>" : "->";
-      sb.append(sourceSystem).append(" ").append(arrow).append(" ")
-          .append(targetSystem).append(": ")
+      sb.append(sanitizedSourceService).append(" ").append(arrow).append(" ")
+          .append(sanitizedTargetService).append(": ")
           .append(externalAPI.getHttpMethod()).append(" ")
           .append(externalAPI.getPath())
-          .append(" (").append(sanitizedTargetService).append(")")
           .append(externalAPI.isAsync() ? " (async)" : "").append("\n");
 
       if (!externalAPI.isAsync()) {
-        sb.append(targetSystem).append(" --> ").append(sourceSystem).append(": Response\n");
+        sb.append(sanitizedTargetService).append(" --> ").append(sanitizedSourceService).append(": Response\n");
       }
     }
   }
 
-  private String extractSystemName(String serviceName) {
-    String[] parts = serviceName.split("-");
-    return parts.length > 0 ? parts[0] : "";
-  }
-
-  private String sanitizeParticipantName(String name) {
-    return name.replaceAll("[^a-zA-Z0-9]", "_");
-  }
-
-  private String findTargetService(String url, List<APIInfo> allApiInfo) {
+  private APIInfo.ExposedAPI findMatchingExposedAPI(APIInfo.ExternalAPI externalAPI, List<APIInfo> allApiInfo) {
     for (APIInfo apiInfo : allApiInfo) {
       for (APIInfo.ExposedAPI exposedAPI : apiInfo.getExposedApis()) {
-        if (url.endsWith(exposedAPI.getPath())) {
-          return apiInfo.getServiceName();
+        if (externalAPI.getPath().endsWith(exposedAPI.getPath()) &&
+            externalAPI.getHttpMethod().equals(exposedAPI.getHttpMethod())) {
+          return exposedAPI;
         }
       }
     }
-    return "ExternalAPI";
+    return null;
+  }
+
+  private String sanitizeParticipantName(String name) {
+    return "\"" + name + "\"";
   }
 
   public static class DiagramOptions {

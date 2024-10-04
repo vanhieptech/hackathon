@@ -8,15 +8,25 @@ import java.util.HashMap;
 
 public class APIInfo {
   private String serviceName;
+  private String baseUrl;
   private List<ExposedAPI> exposedApis;
   private List<ExternalAPI> externalApis;
   private Map<String, String> serviceUrlMap; // For dynamic URL resolution
 
-  public APIInfo(String serviceName) {
+  public APIInfo(String serviceName, String baseUrl) {
     this.serviceName = serviceName;
+    this.baseUrl = baseUrl;
     this.exposedApis = new ArrayList<>();
     this.externalApis = new ArrayList<>();
     this.serviceUrlMap = new HashMap<>();
+  }
+
+  public String getBaseUrl() {
+    return baseUrl;
+  }
+
+  public void setBaseUrl(String baseUrl) {
+    this.baseUrl = baseUrl;
   }
 
   public String getServiceName() {
@@ -52,11 +62,13 @@ public class APIInfo {
   }
 
   public static class ExposedAPI {
+    private String baseUrl;
     private String path;
     private String httpMethod;
     private List<ExternalAPI> externalApis;
     private boolean isAsync;
     private String serviceName;
+    private String serviceClassName;
     private String controllerClassName;
     private String serviceMethod;
     private String returnType;
@@ -65,18 +77,37 @@ public class APIInfo {
     private boolean isGenerated;
     private Map<String, Set<String>> dependencyTree;
 
-    public ExposedAPI(String path, String httpMethod, boolean isAsync, String serviceName, String controllerClassName,
-        String serviceMethod, String returnType, List<ParameterInfo> parameters) {
+    public ExposedAPI(String path, String httpMethod, boolean isAsync, String serviceClassName,
+        String controllerClassName,
+        String serviceMethod, String returnType, List<ParameterInfo> parameters, String baseUrl, String serviceName) {
       this.path = path;
       this.httpMethod = httpMethod;
       this.externalApis = new ArrayList<>();
       this.isAsync = isAsync;
-      this.serviceName = serviceName;
+      this.serviceClassName = serviceClassName;
       this.controllerClassName = controllerClassName;
       this.serviceMethod = serviceMethod;
       this.returnType = returnType;
       this.parameters = parameters;
       this.methodCallTree = new HashMap<>();
+      this.baseUrl = baseUrl;
+      this.serviceName = serviceName;
+    }
+
+    public String getServiceName() {
+      return serviceName;
+    }
+
+    public void setServiceName(String serviceName) {
+      this.serviceName = serviceName;
+    }
+
+    public String getBaseUrl() {
+      return baseUrl;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
     }
 
     public Map<String, Set<String>> getDependencyTree() {
@@ -140,12 +171,12 @@ public class APIInfo {
       this.externalApis.add(externalAPI);
     }
 
-    public String getServiceName() {
-      return serviceName;
+    public String getServiceClassName() {
+      return serviceClassName;
     }
 
-    public void setServiceName(String serviceName) {
-      this.serviceName = serviceName;
+    public void setServiceClassName(String serviceClassName) {
+      this.serviceClassName = serviceClassName;
     }
 
     public String getControllerClassName() {
@@ -192,17 +223,27 @@ public class APIInfo {
     private String returnType;
     private String methodName;
     private boolean isGenerated;
+    private String baseUrl;
 
     public ExternalAPI(String serviceName, String path, String httpMethod, boolean isAsync, String communicationType,
-        String returnType, String methodName) {
+        String returnType, String methodName, String baseUrl) {
       this.serviceName = serviceName;
       this.path = path;
       this.httpMethod = httpMethod;
       this.isAsync = isAsync;
       this.communicationType = communicationType;
-      this.parameters = parameters;
+      this.parameters = new ArrayList<>();
       this.returnType = returnType;
       this.methodName = methodName;
+      this.baseUrl = baseUrl;
+    }
+
+    public String getBaseUrl() {
+      return baseUrl;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
     }
 
     // Getters and setters

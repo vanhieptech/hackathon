@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import com.example.model.APIInfo;
 import com.example.model.APIInfo.ExternalAPI;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,7 +48,7 @@ public class APIAnalyzer {
 
   public APIInfo analyzeAPI() {
     logger.info("Starting API analysis for project: {}", serviceName);
-    APIInfo apiInfo = new APIInfo(serviceName);
+    APIInfo apiInfo = new APIInfo(serviceName, basePath);
     List<APIInfo.ExposedAPI> exposedApis = new ArrayList<>();
 
     logger.info("Analyzing {} classes", allClasses.size());
@@ -58,11 +60,6 @@ public class APIAnalyzer {
         logger.info("Extracted {} APIs from class {}", apis.size(), classNode.name);
         for (APIInfo.ExposedAPI api : apis) {
           logger.info("Building dependency tree for API: {}.{}", classNode.name, api.getServiceMethod());
-          Map<String, Set<String>> dependencyTree = buildEnhancedDependencyTree(classNode, api.getServiceMethod(), 0,
-              new HashSet<>());
-          logger.info("Dependency tree for {}.{} built with {} entries", classNode.name, api.getServiceMethod(),
-              dependencyTree.size());
-          api.setDependencyTree(dependencyTree);
           List<APIInfo.ExternalAPI> externalAPIs = extractExternalAPICalls(classNode, api.getServiceMethod());
           logger.info("Extracted {} external API calls for {}.{}", externalAPIs.size(), classNode.name,
               api.getServiceMethod());
@@ -70,26 +67,6 @@ public class APIAnalyzer {
         }
         exposedApis.addAll(apis);
         logger.info("Total exposed APIs after processing {}: {}", classNode.name, exposedApis.size());
-      }
-    }
-
-    logger.info("Scanning interface implementations");
-    for (ClassNode interfaceNode : allClasses) {
-      if ((interfaceNode.access & Opcodes.ACC_INTERFACE) != 0) {
-        logger.info("Processing interface: {}", interfaceNode.name);
-        List<ClassNode> implementingClasses = findClassesImplementingInterface(interfaceNode.name);
-        for (ClassNode implementingClass : implementingClasses) {
-          logger.info("Processing implementing class: {}", implementingClass.name);
-          List<APIInfo.ExposedAPI> apis = extractAPIsFromClass(implementingClass, allClasses);
-          for (APIInfo.ExposedAPI api : apis) {
-            logger.info("Building dependency tree for API: {}.{}", implementingClass.name, api.getServiceMethod());
-            Map<String, Set<String>> dependencyTree = buildDependencyTree(implementingClass, api.getServiceMethod(), 0,
-                new HashSet<>());
-            api.setDependencyTree(dependencyTree);
-            api.setExternalApis(extractExternalAPICalls(implementingClass, api.getServiceMethod()));
-          }
-          exposedApis.addAll(apis);
-        }
       }
     }
 
@@ -195,7 +172,6 @@ public class APIAnalyzer {
     logger.info("Extracting external API calls for {}.{}", classNode.name, serviceMethod);
     List<APIInfo.ExternalAPI> externalAPIs = new ArrayList<>();
     Map<String, String> classFields = extractClassFields(classNode);
-    String baseUrl = extractBaseUrl(classNode, classFields);
 
     // Build the method call tree
     Map<String, Set<String>> methodCallTree = new HashMap<>();
@@ -207,11 +183,202 @@ public class APIAnalyzer {
     }
     buildMethodCallTreeRecursive(classNode, methodNode, methodCallTree, visitedMethods, 0);
 
+    // Extract baseUrl from the method call tree
+    String baseUrl = extractBaseUrlFromMethodCallTree(methodCallTree, classFields);
+
     // Analyze the method call tree for external API calls
     analyzeMethodCallTreeForExternalAPIs(methodCallTree, baseUrl, classFields, externalAPIs);
 
-    logger.info("Extracted {} external API calls for {}.{}", externalAPIs.size(), classNode.name, serviceMethod);
+    // Filter out duplicate external APIs
+    externalAPIs = filterDuplicateExternalAPIs(externalAPIs);
+
+    logger.info("Extracted {} unique external API calls for {}.{}", externalAPIs.size(), classNode.name, serviceMethod);
     return externalAPIs;
+  }
+
+  private List<APIInfo.ExternalAPI> filterDuplicateExternalAPIs(List<APIInfo.ExternalAPI> externalAPIs) {
+    Map<String, APIInfo.ExternalAPI> uniqueAPIs = new HashMap<>();
+    for (APIInfo.ExternalAPI api : externalAPIs) {
+      String key = api.getBaseUrl() + "|" + api.getPath() + "|" + api.getHttpMethod();
+      if (!uniqueAPIs.containsKey(key) || api.getPath().length() < uniqueAPIs.get(key).getPath().length()) {
+        uniqueAPIs.put(key, api);
+      }
+    }
+    return new ArrayList<>(uniqueAPIs.values());
+  }
+
+  private String extractBaseUrlFromMethodCallTree(Map<String, Set<String>> methodCallTree,
+      Map<String, String> classFields) {
+    for (Map.Entry<String, Set<String>> entry : methodCallTree.entrySet()) {
+      String[] parts = entry.getKey().split("\\.");
+      if (parts.length < 2)
+        continue;
+
+      String className = parts[0];
+      String methodName = parts[1];
+      ClassNode currentClass = findClassNode(className);
+      if (currentClass == null)
+        continue;
+
+      MethodNode currentMethod = findMethodNode(currentClass, methodName);
+      if (currentMethod == null)
+        continue;
+
+      String baseUrl = extractBaseUrlFromMethod(currentClass, currentMethod, classFields);
+      if (baseUrl != null) {
+        return baseUrl;
+      }
+    }
+    return null;
+  }
+
+  private String extractBaseUrlFromMethod(ClassNode classNode, MethodNode methodNode, Map<String, String> classFields) {
+    String baseUrl = null;
+
+    // Check for @Value annotation on fields
+    baseUrl = extractBaseUrlFromFields(classNode);
+    if (baseUrl != null)
+      return baseUrl;
+
+    // Check for WebClient creation in constructor
+    baseUrl = extractBaseUrlFromConstructor(classNode, classFields);
+    if (baseUrl != null)
+      return baseUrl;
+
+    // Check for hardcoded URLs
+    baseUrl = findHardcodedUrl(classNode);
+    if (baseUrl != null)
+      return baseUrl;
+
+    for (AbstractInsnNode insn : methodNode.instructions) {
+      if (insn instanceof MethodInsnNode) {
+        MethodInsnNode methodInsn = (MethodInsnNode) insn;
+        if (isHttpClientMethod(methodInsn)) {
+          baseUrl = extractBaseUrlFromHttpClientMethod(classNode, methodNode, methodInsn, classFields);
+        } else if (isWebClientMethod(methodInsn)) {
+          baseUrl = extractBaseUrlFromWebClientMethod(classNode, methodNode, methodInsn, classFields);
+        } else if (isUrlOrUriCreationMethod(methodInsn)) {
+          baseUrl = extractBaseUrlFromUrlOrUriCreation(methodInsn);
+        }
+        if (baseUrl != null) {
+          return baseUrl;
+        }
+      } else if (insn instanceof FieldInsnNode) {
+        FieldInsnNode fieldInsn = (FieldInsnNode) insn;
+        String fieldValue = classFields.get(fieldInsn.name);
+        if (fieldValue != null && (fieldValue.startsWith("http://") || fieldValue.startsWith("https://"))) {
+          return fieldValue;
+        }
+      } else if (insn instanceof LdcInsnNode) {
+        LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+        if (ldcInsn.cst instanceof String) {
+          String value = (String) ldcInsn.cst;
+          if (value.startsWith("http://") || value.startsWith("https://")) {
+            return value;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private boolean isUrlOrUriCreationMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.equals("java/net/URL") || methodInsn.owner.equals("java/net/URI");
+  }
+
+  private String extractBaseUrlFromUrlOrUriCreation(MethodInsnNode methodInsn) {
+    AbstractInsnNode prevInsn = methodInsn.getPrevious();
+    if (prevInsn instanceof LdcInsnNode) {
+      LdcInsnNode ldcInsn = (LdcInsnNode) prevInsn;
+      if (ldcInsn.cst instanceof String) {
+        String url = (String) ldcInsn.cst;
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+          return url;
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractBaseUrlFromFields(ClassNode classNode) {
+    for (FieldNode field : classNode.fields) {
+      if (field.visibleAnnotations != null) {
+        for (AnnotationNode annotation : field.visibleAnnotations) {
+          if (annotation.desc.contains("Value")) {
+            List<Object> values = annotation.values;
+            if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
+              String propertyKey = (String) values.get(1);
+              propertyKey = propertyKey.replaceAll("[\\$\\{\\}]", "");
+              return resolvePropertyValue(propertyKey);
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractBaseUrlFromHttpClientMethod(ClassNode classNode, MethodNode methodNode,
+      MethodInsnNode methodInsn, Map<String, String> classFields) {
+    // Check previous instructions for URL or URI creation
+    AbstractInsnNode currentInsn = methodInsn.getPrevious();
+    while (currentInsn != null) {
+      if (currentInsn instanceof MethodInsnNode) {
+        MethodInsnNode prevMethodInsn = (MethodInsnNode) currentInsn;
+        if (prevMethodInsn.owner.equals("java/net/URL") || prevMethodInsn.owner.equals("java/net/URI")) {
+          // Found URL or URI creation, check the previous instruction for the URL string
+          AbstractInsnNode urlInsn = prevMethodInsn.getPrevious();
+          if (urlInsn instanceof LdcInsnNode) {
+            LdcInsnNode ldcInsn = (LdcInsnNode) urlInsn;
+            if (ldcInsn.cst instanceof String) {
+              String url = (String) ldcInsn.cst;
+              if (url.startsWith("http://") || url.startsWith("https://")) {
+                return url;
+              }
+            }
+          }
+        }
+      }
+      currentInsn = currentInsn.getPrevious();
+    }
+    return null;
+  }
+
+  private String extractBaseUrlFromWebClientMethod(ClassNode classNode, MethodNode methodNode,
+      MethodInsnNode methodInsn, Map<String, String> classFields) {
+    // Check for WebClient.Builder.baseUrl() calls
+    if (methodInsn.name.equals("baseUrl")) {
+      // Look for the baseUrl parameter
+      AbstractInsnNode currentInsn = methodInsn.getPrevious();
+      while (currentInsn != null) {
+        if (currentInsn instanceof FieldInsnNode) {
+          FieldInsnNode fieldInsn = (FieldInsnNode) currentInsn;
+          String fieldName = fieldInsn.name;
+          // Check if the field is in classFields or if it's annotated with @Value
+          String fieldValue = classFields.get(fieldName);
+          if (fieldValue != null) {
+            return fieldValue;
+          }
+          // If not in classFields, check for @Value annotation
+          for (FieldNode field : classNode.fields) {
+            if (field.name.equals(fieldName) && field.visibleAnnotations != null) {
+              for (AnnotationNode annotation : field.visibleAnnotations) {
+                if (annotation.desc.contains("Value")) {
+                  List<Object> values = annotation.values;
+                  if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
+                    String propertyKey = (String) values.get(1);
+                    propertyKey = propertyKey.replaceAll("[\\$\\{\\}]", "");
+                    return resolvePropertyValue(propertyKey);
+                  }
+                }
+              }
+            }
+          }
+        }
+        currentInsn = currentInsn.getPrevious();
+      }
+    }
+    return null;
   }
 
   private void analyzeMethodCallTreeForExternalAPIs(Map<String, Set<String>> methodCallTree, String baseUrl,
@@ -394,8 +561,10 @@ public class APIAnalyzer {
       String type = parts[4];
       String responseType = parts[5];
       String callerMethod = parts[6];
+      String baseUrl = parts[8];
 
-      return new APIInfo.ExternalAPI(targetService, fullUrl, httpMethod, isAsync, type, responseType, callerMethod);
+      return new APIInfo.ExternalAPI(targetService, fullUrl, httpMethod, isAsync, type, responseType, callerMethod,
+          baseUrl);
     } catch (Exception e) {
       logger.error("Error parsing external API string: {}", apiCall, e);
       return null;
@@ -567,8 +736,9 @@ public class APIAnalyzer {
           String brokerType = extractBrokerType(methodInsn);
           String topic = extractTopic(methodInsn);
           String returnType = extractReturnType(methodNode);
+          String baseUrl = extractBaseUrl(classNode, extractClassFields(classNode));
           APIInfo.ExternalAPI externalAPI = new APIInfo.ExternalAPI(topic, "PUBLISH", methodInsn.name, true, brokerType,
-              returnType, classNode.name + "." + methodNode.name);
+              returnType, classNode.name + "." + methodNode.name, baseUrl);
           dependencyTree.computeIfAbsent("ExternalAPIs", k -> new HashSet<>()).add(externalAPI.toString());
         }
 
@@ -955,7 +1125,10 @@ public class APIAnalyzer {
     String controllerClassName = classNode.name;
     String serviceClassName = extractServiceClassName(classNode);
     boolean isAsync = isAsyncMethod(methodNode);
-
+    String serviceName = extractServiceNameFromUrl(combineUrls(basePath, fullPath));
+    if (serviceName == null) {
+      serviceName = serviceMethod;
+    }
     // Validate the extracted API information
     if (isValidAPI(httpMethod, fullPath, serviceMethod, controllerClassName, serviceClassName)) {
       return new APIInfo.ExposedAPI(
@@ -966,7 +1139,9 @@ public class APIAnalyzer {
           controllerClassName,
           serviceMethod,
           returnType,
-          parameters);
+          parameters,
+          basePath,
+          serviceName);
     } else {
       logger.warn("Invalid API detected: {}.{}", controllerClassName, serviceMethod);
       return null;
@@ -1341,8 +1516,9 @@ public class APIAnalyzer {
           String brokerType = extractBrokerType(methodInsn);
           String topic = extractTopic(methodInsn);
           String returnType = extractReturnType(methodNode);
+          String baseUrl = extractBaseUrl(controllerClass, extractClassFields(controllerClass));
           externalAPIs.add(new APIInfo.ExternalAPI(topic, "PUBLISH", methodInsn.name, true, brokerType,
-              returnType, serviceMethod));
+              returnType, serviceMethod, baseUrl));
         }
       }
     }
@@ -1395,16 +1571,50 @@ public class APIAnalyzer {
     return "Unknown";
   }
 
-  private String extractTargetService(MethodInsnNode methodInsn) {
+  private String extractTargetService(MethodInsnNode methodInsn, String baseUrl) {
+    // Try to extract service name from baseUrl
+    if (baseUrl != null && !baseUrl.isEmpty()) {
+      String serviceName = extractServiceNameFromUrl(baseUrl);
+      if (serviceName != null) {
+        return serviceName;
+      }
+    }
+
+    // If not found in baseUrl, try to extract from FeignClient annotation
     ClassNode targetClass = findClassNode(methodInsn.owner);
     if (targetClass != null && targetClass.visibleAnnotations != null) {
       for (AnnotationNode an : targetClass.visibleAnnotations) {
         if (an.desc.contains("FeignClient")) {
-          return extractAnnotationValue(an, "name");
+          String feignClientName = extractAnnotationValue(an, "name");
+          if (feignClientName != null && !feignClientName.isEmpty()) {
+            return feignClientName;
+          }
         }
       }
     }
+
+    // If still not found, use the class name
+    String className = methodInsn.owner.substring(methodInsn.owner.lastIndexOf('/') + 1);
+    if (className.toLowerCase().contains("service")) {
+      return className;
+    }
+
+    // If all else fails, return "UnknownService"
     return "UnknownService";
+  }
+
+  private String extractServiceNameFromUrl(String baseUrl) {
+    try {
+      URL url = new URL(baseUrl);
+      String host = url.getHost();
+      String[] parts = host.split("\\.");
+      if (parts.length > 0) {
+        return parts[0];
+      }
+    } catch (MalformedURLException e) {
+      logger.warn("Failed to parse baseUrl: {}", baseUrl);
+    }
+    return null;
   }
 
   private ClassNode findClassNode(String controllerClassName, List<ClassNode> allClasses) {
@@ -1542,37 +1752,77 @@ public class APIAnalyzer {
   }
 
   private String extractBaseUrl(ClassNode classNode, Map<String, String> classFields) {
+    String baseUrl = null;
+
     // Check for @Value annotation on fields
-    for (FieldNode field : classNode.fields) {
-      if (field.visibleAnnotations != null) {
-        for (AnnotationNode annotation : field.visibleAnnotations) {
-          if (annotation.desc.contains("Value")) {
-            List<Object> values = annotation.values;
-            if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
-              String propertyKey = (String) values.get(1);
-              propertyKey = propertyKey.replaceAll("[\\$\\{\\}]", "");
-              return resolvePropertyValue(propertyKey);
+    baseUrl = extractBaseUrlFromFields(classNode);
+    if (baseUrl != null)
+      return baseUrl;
+
+    // Check for @Value annotation on constructor parameters
+    baseUrl = extractBaseUrlFromConstructorParams(classNode);
+    if (baseUrl != null)
+      return baseUrl;
+
+    // Check for hardcoded base URL in constructor
+    baseUrl = extractHardcodedBaseUrl(classNode);
+    if (baseUrl != null)
+      return baseUrl;
+
+    // Check for base URL in class fields
+    baseUrl = classFields.get("baseUrl");
+    if (baseUrl != null)
+      return baseUrl;
+
+    // Check for common field names that might contain the base URL
+    String[] commonFieldNames = { "apiUrl", "serviceUrl", "hostUrl", "endpoint" };
+    for (String fieldName : commonFieldNames) {
+      baseUrl = classFields.get(fieldName);
+      if (baseUrl != null)
+        return baseUrl;
+    }
+
+    // Check for methods that might return the base URL
+    baseUrl = extractBaseUrlFromMethods(classNode);
+    if (baseUrl != null)
+      return baseUrl;
+
+    // If no base URL is found, return a default value or null
+    return "http://localhost:8080"; // Default value, change as needed
+  }
+
+  private String extractBaseUrlFromConstructor(ClassNode classNode, Map<String, String> classFields) {
+    for (MethodNode method : classNode.methods) {
+      if (method.name.equals("<init>")) {
+        for (AbstractInsnNode insn : method.instructions) {
+          if (insn instanceof MethodInsnNode) {
+            MethodInsnNode methodInsn = (MethodInsnNode) insn;
+            if (isWebClientBuilderMethod(methodInsn)) {
+              String baseUrl = extractBaseUrlFromWebClientMethod(classNode, method, methodInsn, classFields);
+              if (baseUrl != null)
+                return baseUrl;
             }
           }
         }
       }
     }
+    return null;
+  }
 
-    // Check for @Value annotation on constructor parameters
+  private boolean isWebClientBuilderMethod(MethodInsnNode methodInsn) {
+    return methodInsn.owner.contains("WebClient$Builder") && methodInsn.name.equals("baseUrl");
+  }
+
+  private String extractBaseUrlFromConstructorParams(ClassNode classNode) {
     for (MethodNode method : classNode.methods) {
-      if (method.name.equals("<init>")) {
-        if (method.visibleParameterAnnotations != null) {
-          for (int i = 0; i < method.visibleParameterAnnotations.length; i++) {
-            List<AnnotationNode> annotations = method.visibleParameterAnnotations[i];
-            if (annotations != null) {
-              for (AnnotationNode annotation : annotations) {
-                if (annotation.desc.contains("Value")) {
-                  List<Object> values = annotation.values;
-                  if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
-                    String propertyKey = (String) values.get(1);
-                    propertyKey = propertyKey.replaceAll("[\\$\\{\\}]", "");
-                    return resolvePropertyValue(propertyKey);
-                  }
+      if (method.name.equals("<init>") && method.visibleParameterAnnotations != null) {
+        for (List<AnnotationNode> annotations : method.visibleParameterAnnotations) {
+          if (annotations != null) {
+            for (AnnotationNode annotation : annotations) {
+              if (annotation.desc.contains("Value")) {
+                String propertyKey = extractPropertyKeyFromAnnotation(annotation);
+                if (propertyKey != null) {
+                  return resolvePropertyValue(propertyKey);
                 }
               }
             }
@@ -1580,12 +1830,13 @@ public class APIAnalyzer {
         }
       }
     }
+    return null;
+  }
 
-    // Check for hardcoded base URL in constructor
+  private String extractHardcodedBaseUrl(ClassNode classNode) {
     for (MethodNode method : classNode.methods) {
       if (method.name.equals("<init>")) {
-        AbstractInsnNode[] instructions = method.instructions.toArray();
-        for (AbstractInsnNode insn : instructions) {
+        for (AbstractInsnNode insn : method.instructions) {
           if (insn instanceof LdcInsnNode) {
             LdcInsnNode ldcInsn = (LdcInsnNode) insn;
             if (ldcInsn.cst instanceof String) {
@@ -1598,8 +1849,38 @@ public class APIAnalyzer {
         }
       }
     }
+    return null;
+  }
 
-    return classFields.get("baseUrl");
+  private String extractBaseUrlFromMethods(ClassNode classNode) {
+    String[] methodNames = { "getBaseUrl", "getApiUrl", "getServiceUrl", "getHostUrl" };
+    for (MethodNode method : classNode.methods) {
+      if (Arrays.asList(methodNames).contains(method.name)) {
+        // Analyze method body to extract return value
+        // This is a simplified example and may need more complex analysis
+        for (AbstractInsnNode insn : method.instructions) {
+          if (insn instanceof LdcInsnNode) {
+            LdcInsnNode ldcInsn = (LdcInsnNode) insn;
+            if (ldcInsn.cst instanceof String) {
+              String value = (String) ldcInsn.cst;
+              if (value.startsWith("http://") || value.startsWith("https://")) {
+                return value;
+              }
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private String extractPropertyKeyFromAnnotation(AnnotationNode annotation) {
+    List<Object> values = annotation.values;
+    if (values != null && values.size() >= 2 && values.get(1) instanceof String) {
+      String propertyKey = (String) values.get(1);
+      return propertyKey.replaceAll("[\\$\\{\\}]", "");
+    }
+    return null;
   }
 
   private String resolvePropertyValue(String key) {
@@ -1692,19 +1973,19 @@ public class APIAnalyzer {
     logger.info("Extracting external API info for {}.{}", classNode.name, methodNode.name);
     String endpoint = extractEndpoint(methodNode, methodInsn, classFields);
     logger.info("Extracted endpoint: {}", endpoint);
-    String fullUrl = combineUrls(baseUrl, endpoint);
-    logger.info("Combined full URL: {}", fullUrl);
+    String path = endpoint;
+    logger.info("Combined full URL: {}", path);
     String httpMethod = extractHttpMethod(methodInsn);
     logger.info("Extracted HTTP method: {}", httpMethod);
-    String targetService = extractTargetService(methodInsn);
+    String targetService = extractTargetService(methodInsn, baseUrl);
     logger.info("Extracted target service: {}", targetService);
     boolean isAsync = isAsyncCall(methodInsn);
     logger.info("Is async call: {}", isAsync);
     String responseType = extractResponseType(methodNode, methodInsn);
     logger.info("Extracted response type: {}", responseType);
 
-    APIInfo.ExternalAPI externalAPI = new APIInfo.ExternalAPI(targetService, fullUrl, httpMethod, isAsync, "HTTP",
-        responseType, classNode.name + "." + methodNode.name);
+    APIInfo.ExternalAPI externalAPI = new APIInfo.ExternalAPI(targetService, path, httpMethod, isAsync, "HTTP",
+        responseType, classNode.name + "." + methodNode.name, baseUrl);
     logger.info("Created external API info: {}", externalAPI);
     return externalAPI;
   }
@@ -1850,13 +2131,13 @@ public class APIAnalyzer {
 
   private String extractPathFromAnnotation(List<AnnotationNode> annotations, String annotationName) {
     if (annotations == null)
-      return null;
+      return "";
     for (AnnotationNode an : annotations) {
       if (an.desc.contains(annotationName)) {
         return extractPathValue(an);
       }
     }
-    return null;
+    return "";
   }
 
   private String extractPathValue(AnnotationNode an) {
@@ -1875,7 +2156,7 @@ public class APIAnalyzer {
         }
       }
     }
-    return null;
+    return "";
   }
 
   private String extractHttpMethod(MethodNode methodNode) {
@@ -2051,8 +2332,9 @@ public class APIAnalyzer {
   }
 
   private String combineUrls(String baseUrl, String endpoint) {
-    if (baseUrl == null)
-      return endpoint;
+    if (baseUrl == null || endpoint == null) {
+      return baseUrl != null ? baseUrl : endpoint;
+    }
     baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     endpoint = endpoint.startsWith("/") ? endpoint : "/" + endpoint;
     return baseUrl + endpoint;
@@ -2099,7 +2381,12 @@ public class APIAnalyzer {
       for (int i = 0; i < an.values.size(); i += 2) {
         if (an.values.get(i).equals(key)) {
           Object value = an.values.get(i + 1);
-          return value instanceof String[] ? ((String[]) value)[0] : value.toString();
+          if (value instanceof String[]) {
+            return ((String[]) value)[0].replaceAll("\\[|\\]", "");
+          } else if (value instanceof String) {
+            return ((String) value).replaceAll("\\[|\\]", "");
+          }
+          return value.toString().replaceAll("\\[|\\]", "");
         }
       }
     }
