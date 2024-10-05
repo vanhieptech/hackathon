@@ -44,7 +44,7 @@ public class APIAnalyzer {
     this.serviceMethodCalls = new HashMap<>();
     this.variableAssignments = new HashMap<>();
     buildServiceMethodCallMap();
-    logger.info("APIAnalyzer initialized with base path: {}", basePath);
+    logger.info("APIAnalyzer initialized with base path: {}, config: {}", basePath, configProperties);
   }
 
   public APIInfo analyzeAPI() {
